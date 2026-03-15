@@ -98,16 +98,19 @@
 - `HotkeyController`：全局快捷键注册、纯修饰键监听和 `Fn` 激活监听
 - `OCRService`：Vision 文本识别与图像增强
 - `RecognitionWorkflow`：串联权限检查、截图、OCR 和取消等主流程动作
+- `SystemTranslationService`：系统翻译计划生成、语种推断、超时与错误映射，为后续在线翻译留出统一入口
+- `OnlineTranslationService`：基于环境变量配置的通用 HTTP 在线翻译 provider，请求成功后可直接回填结果面板
 
 #### `UI`
 
 - `ResultPopoverController`：菜单栏图标、右键菜单、自定义浮动面板管理
 - `ResultPopoverController` 支持按菜单栏图标或鼠标位置显示结果面板
 - `ResultPopoverView`：结果面板入口包装，连接 `AppCoordinator`
-- `ResultPopoverContentView`：结果面板主内容和各状态切换
+- `ResultPopoverContentView`：结果面板主内容和各状态切换，并承接系统翻译入口
 - `ResultPopoverStyles`：面板布局、玻璃容器和按钮样式
 - `ResultPopoverPreviewSupport`：预览宿主和预览工厂
 - `SettingsWindowController` / `SettingsView`：设置窗口与快捷键编辑 UI
+- `AppSettings` 现已持久化翻译来源策略，为后续“在线优先、系统回退”预留开关
 
 ### `TextGrabberPreviewApp`
 
@@ -151,6 +154,14 @@
 4. `AppCoordinator` 监听设置变化
 5. `HotkeyController` 更新系统级快捷键注册或 `Fn` 监听方式
 
+### 翻译入口
+
+1. 用户在结果面板点击“系统翻译”
+2. `SystemTranslationService` 根据当前文本生成翻译计划，决定源语言、目标语言和错误提示策略
+3. `ResultPopoverContentView` 在 `macOS 15+` 上通过 SwiftUI 的 `translationTask` 驱动系统翻译会话
+4. 翻译结果继续显示在应用自己的结果面板中，失败则展示统一错误文案
+5. 在更低系统版本上显示兼容性提示，不影响 OCR 主流程
+
 ## State Model
 
 `AppCoordinator` 维护两套状态：
@@ -190,3 +201,4 @@
 2. `AppCoordinator` 已将识别结果相关状态下沉到 `RecognitionResultState`，将权限检查、截图、OCR 等动作下沉到 `RecognitionWorkflow`，并将快捷键与选择阶段控制下沉到 `CaptureTriggerController`。
 3. 结果面板 UI 已拆成入口、内容、样式和预览支撑四层，后续调整某一层时更不容易波及已稳定部分。
 4. `templates/collaboration-starter` 提供了一套可复制到新仓库的协作初始化包。
+5. `TranslationServiceResolver` 会根据设置和环境变量决定走在线翻译还是系统翻译；当前“自动”策略在检测到在线 provider 配置时会优先在线，失败后再回退系统。

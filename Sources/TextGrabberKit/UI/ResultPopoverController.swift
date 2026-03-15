@@ -152,6 +152,7 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
     }
 
     func windowDidResignKey(_ notification: Notification) {
+        guard !coordinator.resultState.isTranslating else { return }
         hide()
     }
 

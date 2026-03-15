@@ -58,6 +58,7 @@ final class AppSettingsTests: XCTestCase {
 
         XCTAssertEqual(settings.activationMode, .keyboardShortcut)
         XCTAssertEqual(settings.resultPanelPlacement, .statusItem)
+        XCTAssertEqual(settings.translationProvider, .automatic)
     }
 
     func testPersistsActivationModeAndResultPanelPlacement() {
@@ -66,9 +67,11 @@ final class AppSettingsTests: XCTestCase {
 
         settings.activationMode = .functionKey
         settings.resultPanelPlacement = .followMouse
+        settings.translationProvider = .systemOnly
 
         XCTAssertEqual(defaults.string(forKey: "app.activationMode"), CaptureActivationMode.functionKey.rawValue)
         XCTAssertEqual(defaults.string(forKey: "app.resultPanelPlacement"), ResultPanelPlacementMode.followMouse.rawValue)
+        XCTAssertEqual(defaults.string(forKey: "app.translationProvider"), TranslationProviderMode.systemOnly.rawValue)
     }
 
     private func makeDefaults(file: StaticString = #filePath, line: UInt = #line) -> UserDefaults {

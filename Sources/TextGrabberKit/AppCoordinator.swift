@@ -24,6 +24,7 @@ public final class AppCoordinator: ObservableObject {
     let settings: AppSettings
     let resultState = RecognitionResultState()
 
+    let translationServiceResolver: TranslationServiceResolver
     private let triggerController: CaptureTriggerController
     private let workflow: RecognitionWorkflow
     private var popoverController: ResultPopoverController?
@@ -32,16 +33,19 @@ public final class AppCoordinator: ObservableObject {
 
     public init(settings: AppSettings) {
         self.settings = settings
+        self.translationServiceResolver = TranslationServiceResolver()
         self.triggerController = CaptureTriggerController(settings: settings)
         self.workflow = RecognitionWorkflow()
     }
 
     init(
         settings: AppSettings,
+        translationServiceResolver: TranslationServiceResolver = TranslationServiceResolver(),
         workflow: RecognitionWorkflow,
         triggerController: CaptureTriggerController
     ) {
         self.settings = settings
+        self.translationServiceResolver = translationServiceResolver
         self.workflow = workflow
         self.triggerController = triggerController
     }

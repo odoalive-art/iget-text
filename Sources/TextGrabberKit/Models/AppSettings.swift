@@ -31,6 +31,29 @@ enum ResultPanelPlacementMode: String, Codable, CaseIterable {
     }
 }
 
+enum TranslationProviderMode: String, Codable, CaseIterable {
+    case automatic
+    case systemOnly
+
+    var displayName: String {
+        switch self {
+        case .automatic:
+            "自动"
+        case .systemOnly:
+            "仅系统翻译"
+        }
+    }
+
+    var helperText: String {
+        switch self {
+        case .automatic:
+            "预留在线优先、系统回退。当前版本尚未接入在线翻译，暂时等同系统翻译。"
+        case .systemOnly:
+            "仅使用系统翻译能力，适合更看重本地能力和系统一致性的场景。"
+        }
+    }
+}
+
 struct KeyboardShortcut: Codable, Equatable {
     var keyCode: UInt32?
     var carbonModifiers: UInt32
@@ -130,6 +153,7 @@ public final class AppSettings: ObservableObject {
     @Published var hotkey: KeyboardShortcut
     @Published var activationMode: CaptureActivationMode
     @Published var resultPanelPlacement: ResultPanelPlacementMode
+    @Published var translationProvider: TranslationProviderMode
     @Published var launchAtLogin = false
 
     let ocrLanguages = ["zh-Hans", "en-US"]
@@ -138,11 +162,13 @@ public final class AppSettings: ObservableObject {
     private let hotkeyKey = "app.hotkey"
     private let activationModeKey = "app.activationMode"
     private let resultPanelPlacementKey = "app.resultPanelPlacement"
+    private let translationProviderKey = "app.translationProvider"
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         activationMode = CaptureActivationMode(rawValue: defaults.string(forKey: activationModeKey) ?? "") ?? .keyboardShortcut
         resultPanelPlacement = ResultPanelPlacementMode(rawValue: defaults.string(forKey: resultPanelPlacementKey) ?? "") ?? .statusItem
+        translationProvider = TranslationProviderMode(rawValue: defaults.string(forKey: translationProviderKey) ?? "") ?? .automatic
 
         if let data = defaults.data(forKey: hotkeyKey),
            let shortcut = try? JSONDecoder().decode(KeyboardShortcut.self, from: data) {
@@ -174,6 +200,13 @@ public final class AppSettings: ObservableObject {
             .dropFirst()
             .sink { [weak self] mode in
                 self?.defaults.set(mode.rawValue, forKey: self?.resultPanelPlacementKey ?? "")
+            }
+            .store(in: &cancellables)
+
+        $translationProvider
+            .dropFirst()
+            .sink { [weak self] provider in
+                self?.defaults.set(provider.rawValue, forKey: self?.translationProviderKey ?? "")
             }
             .store(in: &cancellables)
     }

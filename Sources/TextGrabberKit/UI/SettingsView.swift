@@ -48,6 +48,17 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("翻译") {
+                Picker("翻译来源", selection: $settings.translationProvider) {
+                    ForEach(TranslationProviderMode.allCases, id: \.self) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
+                }
+
+                Text(settings.translationProvider.helperText)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("其他") {
                 Picker("识别窗口位置", selection: $settings.resultPanelPlacement) {
                     ForEach(ResultPanelPlacementMode.allCases, id: \.self) { mode in
@@ -61,7 +72,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding(20)
-        .frame(width: 460, height: 320)
+        .frame(width: 460, height: 380)
     }
 
     private func openAccessibilityPreferences() {

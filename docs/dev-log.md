@@ -27,6 +27,66 @@ Notes:
 Author: Codex
 
 Summary:
+- 将翻译能力从结果面板视图中抽成独立服务接口
+- 为后续在线翻译或 AI 翻译接入预留统一入口
+
+Changes:
+- 新增 `SystemTranslationService`，统一处理系统翻译的语种识别、目标语言策略、超时提示和错误映射
+- 新增 `OnlineTranslationService` 和 `TranslationServiceResolver`，支持“自动”策略在检测到在线 provider 配置时优先在线翻译
+- 将翻译状态下沉到 `RecognitionResultState`，减少视图内临时状态
+- 让 `AppCoordinator` 注入翻译服务，结果面板改为消费服务层而不是内嵌翻译判断逻辑
+- 为 `AppSettings` 和设置窗口增加翻译来源策略，预留“在线优先、系统回退”的后续接入点
+- 同步更新 AI 上下文、架构和待办文档，补充真实用户语言包体验的后续方向
+
+Files Modified:
+- `Sources/TextGrabberKit/Services/SystemTranslationService.swift`
+- `README.md`
+- `Sources/TextGrabberKit/Models/RecognitionResultState.swift`
+- `Sources/TextGrabberKit/AppCoordinator.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverView.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverContentView.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverPreviewSupport.swift`
+- `Sources/TextGrabberKit/Models/AppSettings.swift`
+- `Sources/TextGrabberKit/UI/SettingsView.swift`
+- `Sources/TextGrabberKit/UI/SettingsWindowController.swift`
+- `Tests/TextGrabberTests/AppSettingsTests.swift`
+- `docs/ai-context.md`
+- `docs/architecture.md`
+- `docs/todo.md`
+- `docs/dev-log.md`
+
+Notes:
+- 当前系统翻译仍可能受语言资源准备状态影响，真实用户上线前建议增加安装引导或在线翻译回退
+
+## 2026-03-15
+
+Author: Codex
+
+Summary:
+- 为结果面板增加系统翻译入口，补齐 OCR 结果到系统翻译的最小闭环
+- 保持当前包最低版本不变，并为低版本系统补充可用性提示
+
+Changes:
+- 在结果面板底部新增“系统翻译”按钮
+- 通过 SwiftUI `translationPresentation` 调用系统翻译能力
+- 在 `macOS 15` 以下显示兼容性提示，不影响现有 OCR 主流程
+- 更新项目上下文、架构和待办文档，记录系统翻译现状与后续 AI 接入方向
+
+Files Modified:
+- `Sources/TextGrabberKit/UI/ResultPopoverContentView.swift`
+- `docs/ai-context.md`
+- `docs/architecture.md`
+- `docs/todo.md`
+- `docs/dev-log.md`
+
+Notes:
+- 本次暂未抽出独立翻译服务，当前实现以最小可验证接入系统能力为主，后续可在此基础上替换为 AI 翻译服务
+
+## 2026-03-15
+
+Author: Codex
+
+Summary:
 - 将识别流程抽成独立 workflow 对象，降低 `AppCoordinator` 的流程耦合
 - 将快捷键与选择阶段控制抽成独立触发控制对象
 - 拆分结果面板 UI 结构，降低后续改动对已稳定界面的影响

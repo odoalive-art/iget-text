@@ -19,6 +19,40 @@
 swift run
 ```
 
+如需启用在线翻译 provider，可在运行前注入以下环境变量：
+
+```bash
+export TEXTGRABBER_TRANSLATION_API_URL="https://your-translation-service.example.com/translate"
+export TEXTGRABBER_TRANSLATION_API_KEY="your-token"
+export TEXTGRABBER_TRANSLATION_API_MODEL="optional-model-name"
+swift run
+```
+
+请求体默认发送：
+
+```json
+{
+  "text": "待翻译文本",
+  "sourceLanguage": "zh-Hans",
+  "targetLanguage": "en",
+  "model": "optional-model-name"
+}
+```
+
+返回体兼容以下任一字段：
+
+```json
+{ "translatedText": "..." }
+```
+
+```json
+{ "translation": "..." }
+```
+
+```json
+{ "text": "..." }
+```
+
 ### Xcode
 
 直接在 Xcode 中打开本目录下的 `Package.swift` 即可运行。

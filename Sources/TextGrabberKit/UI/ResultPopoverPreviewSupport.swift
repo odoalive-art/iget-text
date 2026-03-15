@@ -24,6 +24,9 @@ struct ResultPopoverPreviewSurface: View {
         ResultPopoverContentView(
             displayState: displayState,
             placementMode: .statusItem,
+            resultState: previewState,
+            translationServiceResolver: TranslationServiceResolver(),
+            translationProvider: .automatic,
             outputMode: .constant(.readingOptimized),
             recognizedText: $recognizedText,
             capturedPreviewImage: capturedPreviewImage,
@@ -36,6 +39,12 @@ struct ResultPopoverPreviewSurface: View {
         )
         .frame(width: ResultPopoverLayout.width, height: ResultPopoverLayout.height)
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    private var previewState: RecognitionResultState {
+        let state = RecognitionResultState()
+        state.translatedText = "Apple Translation\n\nThis preview uses the system translation service abstraction."
+        return state
     }
 }
 

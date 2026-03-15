@@ -14,6 +14,9 @@ struct ResultPopoverView: View {
         ResultPopoverContentView(
             displayState: displayState,
             placementMode: coordinator.settings.resultPanelPlacement,
+            resultState: resultState,
+            translationServiceResolver: coordinator.translationServiceResolver,
+            translationProvider: coordinator.settings.translationProvider,
             outputMode: Binding(
                 get: { resultState.outputMode },
                 set: { coordinator.setOutputMode($0) }
@@ -73,6 +76,9 @@ public struct ResultPopoverPreviewHost: View {
                 ResultPopoverContentView(
                     displayState: displayState,
                     placementMode: .statusItem,
+                    resultState: ResultPopoverPreviewState.result,
+                    translationServiceResolver: TranslationServiceResolver(),
+                    translationProvider: .automatic,
                     outputMode: .constant(.readingOptimized),
                     recognizedText: $recognizedText,
                     capturedPreviewImage: capturedPreviewImage,
@@ -111,4 +117,13 @@ public struct ResultPopoverPreviewHost: View {
             ResultPopoverPreviewFactory.previewImage()
         }
     }
+}
+
+@MainActor
+private enum ResultPopoverPreviewState {
+    static let result: RecognitionResultState = {
+        let state = RecognitionResultState()
+        state.translatedText = "Apple Translation\n\nThis preview uses the system translation service abstraction."
+        return state
+    }()
 }
