@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -7,6 +8,7 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
     private let statusItem: NSStatusItem
     private let panel: ResultFloatingPanel
     private let hostingController: NSHostingController<ResultPopoverView>
+    private var cancellables = Set<AnyCancellable>()
 
     init(coordinator: AppCoordinator) {
         self.coordinator = coordinator
@@ -76,6 +78,7 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
         panel.delegate = self
         panel.contentViewController = hostingController
         panel.setContentSize(currentPanelSize())
+        observePanelSizingInputs()
     }
 
     private func showCurrentState() {
@@ -86,13 +89,53 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
     }
 
     private func currentPanelSize() -> NSSize {
-        let isCompactTextPanel = coordinator.settings.resultPanelPlacement == .followMouse &&
-            coordinator.popoverState == .result
+        if coordinator.popoverState == .result {
+            return NSSize(
+                width: ResultPopoverLayout.width,
+                height: ResultPopoverLayout.resultPanelHeight(
+                    text: coordinator.resultState.recognizedText,
+                    image: coordinator.resultState.capturedPreviewImage,
+                    includePreview: coordinator.settings.resultPanelPlacement != .followMouse
+                )
+            )
+        }
 
         return NSSize(
             width: ResultPopoverLayout.width,
-            height: isCompactTextPanel ? ResultPopoverLayout.compactHeight : ResultPopoverLayout.height
+            height: ResultPopoverLayout.height
         )
+    }
+
+    private func observePanelSizingInputs() {
+        coordinator.resultState.$recognizedText
+            .sink { [weak self] _ in
+                self?.refreshVisiblePanelLayout()
+            }
+            .store(in: &cancellables)
+
+        coordinator.resultState.$capturedPreviewImage
+            .sink { [weak self] _ in
+                self?.refreshVisiblePanelLayout()
+            }
+            .store(in: &cancellables)
+
+        coordinator.$popoverState
+            .sink { [weak self] _ in
+                self?.refreshVisiblePanelLayout()
+            }
+            .store(in: &cancellables)
+
+        coordinator.settings.$resultPanelPlacement
+            .sink { [weak self] _ in
+                self?.refreshVisiblePanelLayout()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func refreshVisiblePanelLayout() {
+        guard panel.isVisible else { return }
+        panel.setContentSize(currentPanelSize())
+        panel.setFrame(panelFrame(), display: true)
     }
 
     private func panelFrame() -> NSRect {
@@ -116,7 +159,7 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
         let height = panel.frame.height
         let margin: CGFloat = 8
 
-        var originX = buttonRectOnScreen.maxX - width
+        var originX = buttonRectOnScreen.midX - (width / 2)
         var originY = buttonRectOnScreen.minY - height - margin
 
         originX = min(max(originX, visibleFrame.minX + margin), visibleFrame.maxX - width - margin)

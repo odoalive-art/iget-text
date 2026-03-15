@@ -104,10 +104,10 @@
 #### `UI`
 
 - `ResultPopoverController`：菜单栏图标、右键菜单、自定义浮动面板管理
-- `ResultPopoverController` 支持按菜单栏图标或鼠标位置显示结果面板
+- `ResultPopoverController` 支持按菜单栏图标或鼠标位置显示结果面板，并会在结果内容变化时重新计算面板尺寸
 - `ResultPopoverView`：结果面板入口包装，连接 `AppCoordinator`
-- `ResultPopoverContentView`：结果面板主内容和各状态切换，并承接系统翻译入口
-- `ResultPopoverStyles`：面板布局、玻璃容器和按钮样式
+- `ResultPopoverContentView`：结果面板主内容和各状态切换，并承接系统翻译入口以及预览区/文本区自适应布局
+- `ResultPopoverStyles`：面板布局、玻璃容器、按钮样式和结果面板自适应尺寸规则
 - `ResultPopoverPreviewSupport`：预览宿主和预览工厂
 - `SettingsWindowController` / `SettingsView`：设置窗口与快捷键编辑 UI
 - `AppSettings` 现已持久化翻译来源策略，为后续“在线优先、系统回退”预留开关

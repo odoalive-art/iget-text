@@ -27,6 +27,34 @@ Notes:
 Author: Codex
 
 Summary:
+- 按设计稿重构结果面板的布局、按钮层级和视觉样式
+- 为结果面板补充菜单栏居中弹出与内容驱动的自适应高度规则
+
+Changes:
+- 使用本地 Figma Desktop MCP 手动抓取设计上下文和截图，按设计稿改写 `ResultPopoverContentView`
+- 调整 `ResultPopoverStyles` 中的面板常量和排版 token，使截图预览区与文本识别区按内容动态计算高度
+- 让 `ResultPopoverController` 在菜单栏模式下优先按图标中心对齐显示，并在结果内容或位置模式变化时重算面板尺寸
+- 更新预览宿主示例内容，便于后续继续对照设计稿调试
+- 同步更新 AI 上下文、架构和待办文档，记录当前结果面板的交互状态
+
+Files Modified:
+- `Sources/TextGrabberKit/UI/ResultPopoverContentView.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverController.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverPreviewSupport.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverStyles.swift`
+- `docs/ai-context.md`
+- `docs/architecture.md`
+- `docs/todo.md`
+- `docs/dev-log.md`
+
+Notes:
+- 当前已完成布局与基础交互对齐，下一步更适合做一轮真实菜单栏运行态验证，确认不同文本长度和截图比例下的弹窗高度是否稳定
+
+## 2026-03-15
+
+Author: Codex
+
+Summary:
 - 将翻译能力从结果面板视图中抽成独立服务接口
 - 为后续在线翻译或 AI 翻译接入预留统一入口
 

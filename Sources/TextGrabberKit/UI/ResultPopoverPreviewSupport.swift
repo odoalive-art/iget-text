@@ -51,11 +51,11 @@ struct ResultPopoverPreviewSurface: View {
 @MainActor
 enum ResultPopoverPreviewFactory {
     static let resultText = """
-    OPPO 互联
+    阅创建新分支准备优化 UI 交互...
 
-    将电脑本地文件拖动到此处，可快速发送至手机。
+    新增：翻译功能
 
-    下一页
+    初版开发与架构整理读优化
     """
 
     static func resultSurface() -> ResultPopoverPreviewSurface {
@@ -83,7 +83,7 @@ enum ResultPopoverPreviewFactory {
     }
 
     static func previewImage() -> NSImage {
-        let size = NSSize(width: 900, height: 560)
+        let size = NSSize(width: 480, height: 280)
         let image = NSImage(size: size)
 
         image.lockFocus()
@@ -92,43 +92,41 @@ enum ResultPopoverPreviewFactory {
         NSColor.windowBackgroundColor.setFill()
         bounds.fill()
 
-        let panelRect = NSRect(x: 80, y: 80, width: 740, height: 400)
-        let panelPath = NSBezierPath(roundedRect: panelRect, xRadius: 24, yRadius: 24)
-        NSColor.controlBackgroundColor.setFill()
+        let panelRect = NSRect(x: 90, y: 70, width: 300, height: 140)
+        let panelPath = NSBezierPath(roundedRect: panelRect, xRadius: 18, yRadius: 18)
+        NSColor.white.withAlphaComponent(0.94).setFill()
         panelPath.fill()
 
-        let heroRect = NSRect(x: 120, y: 170, width: 660, height: 250)
-        let heroPath = NSBezierPath(roundedRect: heroRect, xRadius: 20, yRadius: 20)
-        NSColor.systemBlue.withAlphaComponent(0.18).setFill()
-        heroPath.fill()
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.08)
+        shadow.shadowBlurRadius = 16
+        shadow.shadowOffset = NSSize(width: 0, height: -8)
+        shadow.set()
 
-        let innerRect = NSRect(x: 250, y: 235, width: 400, height: 120)
-        let innerPath = NSBezierPath(roundedRect: innerRect, xRadius: 18, yRadius: 18)
-        NSColor.white.withAlphaComponent(0.9).setFill()
-        innerPath.fill()
-
-        let dashedRect = NSRect(x: 285, y: 250, width: 330, height: 90)
-        let dashedPath = NSBezierPath(roundedRect: dashedRect, xRadius: 12, yRadius: 12)
-        dashedPath.setLineDash([6, 5], count: 2, phase: 0)
-        dashedPath.lineWidth = 2
-        NSColor.systemBlue.withAlphaComponent(0.35).setStroke()
-        dashedPath.stroke()
-
-        let caption = "将电脑本地文件拖动到此处，可快速发送至手机。"
+        let caption = "创建新分支准备优化 UI 交互..."
         caption.draw(
-            in: NSRect(x: 155, y: 110, width: 580, height: 36),
+            in: NSRect(x: 120, y: 150, width: 240, height: 20),
             withAttributes: [
-                .font: NSFont.systemFont(ofSize: 28, weight: .medium),
+                .font: NSFont.systemFont(ofSize: 18, weight: .semibold),
                 .foregroundColor: NSColor.labelColor
             ]
         )
 
-        let footer = "下一页"
-        footer.draw(
-            in: NSRect(x: 390, y: 30, width: 120, height: 36),
+        let translation = "新增：翻译功能"
+        translation.draw(
+            in: NSRect(x: 120, y: 115, width: 180, height: 20),
             withAttributes: [
-                .font: NSFont.systemFont(ofSize: 30, weight: .regular),
-                .foregroundColor: NSColor.systemBlue
+                .font: NSFont.systemFont(ofSize: 16, weight: .medium),
+                .foregroundColor: NSColor.labelColor
+            ]
+        )
+
+        let footer = "初版开发与架构整理"
+        footer.draw(
+            in: NSRect(x: 120, y: 82, width: 180, height: 20),
+            withAttributes: [
+                .font: NSFont.systemFont(ofSize: 16, weight: .regular),
+                .foregroundColor: NSColor.labelColor
             ]
         )
 

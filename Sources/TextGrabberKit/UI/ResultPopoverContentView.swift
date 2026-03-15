@@ -11,10 +11,6 @@ enum ResultPopoverDisplayState {
     case error
 }
 
-private enum ResultPopoverSectionStyle {
-    static let cornerRadius: CGFloat = 14
-}
-
 struct ResultPopoverContentView: View {
     let displayState: ResultPopoverDisplayState
     let placementMode: ResultPanelPlacementMode
@@ -55,223 +51,352 @@ struct ResultPopoverContentView: View {
 
     private var contentSurface: some View {
         LiquidGlassSurface(cornerRadius: ResultPopoverLayout.cornerRadius) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(spacing: 0) {
                 header
 
-                Group {
-                    switch displayState {
-                    case .result:
-                        resultEditor
-                    case .recognizing:
-                        recognizingView
-                    case .permission:
-                        permissionView
-                    case .error:
-                        errorView
+                VStack(spacing: 17) {
+                    if !usesCompactTextLayout {
+                        previewPane
                     }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-                footer
+                    contentCard
+
+                    footer
+                }
+                .padding(.horizontal, ResultPopoverLayout.horizontalInset)
+                .padding(.top, ResultPopoverLayout.topContentPadding)
+                .padding(.bottom, ResultPopoverLayout.bottomContentPadding)
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(ResultPopoverPalette.panelBackground)
         }
         .overlay(
             RoundedRectangle(cornerRadius: ResultPopoverLayout.cornerRadius, style: .continuous)
-                .stroke(Color.white.opacity(0.8), lineWidth: 1)
+                .stroke(Color.white.opacity(0.65), lineWidth: 1)
         )
         .background(prewarmTranslationTaskBridge)
         .background(translationTaskBridge)
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "text.viewfinder")
-                .font(.system(size: 20))
-                .foregroundStyle(Color.accentColor)
+        HStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "text.viewfinder")
+                    .font(.resultPopoverIcon)
+                    .foregroundStyle(ResultPopoverPalette.accent)
 
-            Text("截图文本识别")
-                .font(.title3.weight(.semibold))
+                Text("iGET！")
+                    .font(.resultPopoverTitle)
+                    .foregroundStyle(ResultPopoverPalette.accent)
+            }
 
             Spacer()
 
-            Button {
-                onShowSettings()
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.body.weight(.medium))
+            HStack(spacing: 5) {
+                compactIconButton(symbol: "gearshape", action: onShowSettings)
+                compactIconButton(symbol: "xmark.circle", action: onClose)
             }
-            .popoverSecondaryButtonStyle()
+        }
+        .padding(.horizontal, ResultPopoverLayout.horizontalInset)
+        .padding(.top, 10)
+        .frame(height: ResultPopoverLayout.headerHeight)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.black.opacity(0.1))
+                .frame(height: 0.5)
         }
     }
 
-    private var resultEditor: some View {
-        Group {
-            if usesCompactTextLayout {
-                textPane
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                VStack(spacing: 18) {
-                    previewPane
-                        .frame(maxWidth: .infinity)
-
-                    textPane
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
+    private func compactIconButton(symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.resultPopoverSymbol)
+                .foregroundStyle(ResultPopoverPalette.secondaryText)
+                .frame(width: 24, height: 24)
+                .background(ResultPopoverPalette.softFill, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-    }
-
-    private var recognizingView: some View {
-        VStack(spacing: 18) {
-            previewPane
-                .frame(maxWidth: .infinity)
-
-            sectionCard(title: "识别状态") {
-                VStack(alignment: .leading, spacing: 12) {
-                    ProgressView("正在识别所选区域中的文本...")
-                        .controlSize(.small)
-                    Text("识别完成后会自动显示文本结果，你可以直接复制或编辑。")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(maxHeight: .infinity)
-        }
-    }
-
-    private var permissionView: some View {
-        sectionCard(title: "权限提示") {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("需要屏幕录制权限")
-                    .font(.title3.weight(.semibold))
-                Text("请在“系统设置 -> 隐私与安全性 -> 屏幕录制”中允许本应用，然后重新触发快捷键。")
-                    .foregroundStyle(.secondary)
-                HStack {
-                    Button("打开系统设置") {
-                        onOpenScreenRecordingPreferences()
-                    }
-                    Button("关闭") {
-                        onClose()
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var errorView: some View {
-        sectionCard(title: "错误信息") {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("本次识别没有成功")
-                    .font(.title3.weight(.semibold))
-                Text(lastErrorMessage ?? "请重新尝试。")
-                    .foregroundStyle(.secondary)
-                HStack {
-                    Button("重新识别") {
-                        onRetry()
-                    }
-                    Button("关闭") {
-                        onClose()
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var footer: some View {
-        HStack {
-            Button("重新识别") {
-                onRetry()
-            }
-            .disabled(displayState == .recognizing)
-            .popoverSecondaryButtonStyle()
-
-            Spacer()
-
-            Button("系统翻译") {
-                presentSystemTranslation()
-            }
-            .disabled(!canTranslateCurrentText)
-            .popoverSecondaryButtonStyle()
-
-            Button("复制文本") {
-                onCopy()
-            }
-            .disabled(recognizedText.isEmpty)
-            .popoverPrimaryButtonStyle()
-
-            Button("关闭") {
-                onClose()
-            }
-            .popoverSecondaryButtonStyle()
-        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(symbol == "gearshape" ? "设置" : "关闭"))
     }
 
     private var previewPane: some View {
-        sectionCard(title: "截图预览", contentPadding: 0) {
-            ZStack {
-                if let image = capturedPreviewImage {
-                    GeometryReader { proxy in
+        ZStack {
+            if let image = capturedPreviewImage {
+                RoundedRectangle(cornerRadius: ResultPopoverLayout.previewCornerRadius, style: .continuous)
+                    .fill(Color.white.opacity(0.88))
+                    .shadow(color: ResultPopoverPalette.shadowColor, radius: 18, y: 12)
+                    .overlay {
                         Image(nsImage: image)
                             .resizable()
                             .interpolation(.high)
-                            .aspectRatio(contentMode: .fit)
+                            .aspectRatio(contentMode: .fill)
                             .frame(
-                                width: proxy.size.width - 16,
-                                height: proxy.size.height - 16,
-                                alignment: .center
+                                width: ResultPopoverLayout.previewWidth,
+                                height: ResultPopoverLayout.previewHeight(for: capturedPreviewImage)
                             )
-                            .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                            .clipShape(
+                                RoundedRectangle(
+                                    cornerRadius: ResultPopoverLayout.previewCornerRadius,
+                                    style: .continuous
+                                )
+                            )
                     }
-                } else {
-                    ContentUnavailableView(
-                        "暂无截图",
-                        systemImage: "photo",
-                        description: Text("完成一次截图后，这里会显示实际识别区域。")
+                    .frame(
+                        width: ResultPopoverLayout.previewWidth,
+                        height: ResultPopoverLayout.previewHeight(for: capturedPreviewImage)
                     )
-                    .padding(.horizontal, 12)
-                    .font(.subheadline)
-                }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: ResultPopoverLayout.previewCornerRadius, style: .continuous)
+                            .stroke(Color.white.opacity(0.9), lineWidth: 1)
+                    )
+            } else {
+                RoundedRectangle(cornerRadius: ResultPopoverLayout.previewCornerRadius, style: .continuous)
+                    .fill(Color.white.opacity(0.72))
+                    .frame(
+                        width: ResultPopoverLayout.previewWidth,
+                        height: ResultPopoverLayout.previewHeight(for: capturedPreviewImage)
+                    )
+                    .overlay {
+                        VStack(spacing: 6) {
+                            Image(systemName: displayState == .recognizing ? "viewfinder.circle" : "photo")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(ResultPopoverPalette.secondaryText)
+                            Text(displayState == .recognizing ? "截图处理中…" : "暂无截图")
+                                .font(.resultPopoverMedium)
+                                .foregroundStyle(ResultPopoverPalette.secondaryText)
+                        }
+                    }
+                    .shadow(color: ResultPopoverPalette.shadowColor, radius: 18, y: 12)
             }
-            .frame(height: 210)
         }
+        .frame(
+            maxWidth: .infinity,
+            minHeight: ResultPopoverLayout.previewSectionHeight(for: capturedPreviewImage),
+            maxHeight: ResultPopoverLayout.previewSectionHeight(for: capturedPreviewImage),
+            alignment: .center
+        )
     }
 
-    private var textPane: some View {
-        sectionCard(title: "识别文本", contentPadding: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                Picker("输出模式", selection: $outputMode) {
-                    ForEach(OCRTextOutputMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
+    private var contentCard: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            if displayState == .result {
+                outputModeControl
+            }
+
+            Group {
+                switch displayState {
+                case .result:
+                    resultTextBlock
+                case .recognizing:
+                    progressBlock(
+                        title: "正在识别",
+                        message: "截图中的文字提取完成后，会自动填充到这里。"
+                    )
+                case .permission:
+                    messageBlock(
+                        title: "需要屏幕录制权限",
+                        message: "请在“系统设置 -> 隐私与安全性 -> 屏幕录制”中允许本应用，然后重新触发截图识别。"
+                    )
+                case .error:
+                    messageBlock(
+                        title: "识别没有成功",
+                        message: lastErrorMessage ?? "请重新尝试一次。"
+                    )
+                }
+            }
+        }
+        .padding(.top, ResultPopoverLayout.contentCardTopPadding)
+        .padding(.leading, ResultPopoverLayout.contentCardInnerHorizontalPadding)
+        .padding(.trailing, ResultPopoverLayout.contentCardInnerHorizontalPadding)
+        .padding(.bottom, ResultPopoverLayout.contentCardBottomPadding)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: cardHeight,
+            idealHeight: cardHeight,
+            maxHeight: cardHeight,
+            alignment: .topLeading
+        )
+        .background(contentCardBackground)
+    }
+
+    private var contentCardBackground: some View {
+        RoundedRectangle(cornerRadius: ResultPopoverLayout.cornerRadius, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.black.opacity(0.04),
+                        Color.black.opacity(0.02)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: ResultPopoverLayout.cornerRadius, style: .continuous)
+                    .stroke(ResultPopoverPalette.controlStroke, lineWidth: 1)
+            )
+    }
+
+    private var outputModeControl: some View {
+        HStack(spacing: 0) {
+            outputModeButton(.readingOptimized)
+            outputModeButton(.sourceLayout)
+        }
+        .padding(.horizontal, 2)
+        .padding(.vertical, 2)
+        .background(ResultPopoverPalette.controlFill, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func outputModeButton(_ mode: OCRTextOutputMode) -> some View {
+        let isSelected = outputMode == mode
+
+        return Button {
+            outputMode = mode
+        } label: {
+            Text(mode == .sourceLayout ? "原始文本" : mode.displayName)
+                .font(.resultPopoverMedium)
+                .foregroundStyle(ResultPopoverPalette.baseText)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.white)
                     }
                 }
-                .pickerStyle(.segmented)
-                .padding(12)
+        }
+        .buttonStyle(.plain)
+    }
 
-                Divider()
-
-                TextEditor(text: $recognizedText)
-                    .font(.body)
-                    .scrollContentBackground(.hidden)
-                    .padding(12)
-                    .frame(minHeight: 140, maxHeight: .infinity, alignment: .topLeading)
-                    .layoutPriority(1)
+    private var resultTextBlock: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(recognizedText)
+                    .font(.resultPopoverBody)
+                    .foregroundStyle(ResultPopoverPalette.baseText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.leading)
+                    .textSelection(.enabled)
 
                 if shouldShowTranslationPane {
-                    Divider()
                     translationPane
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func progressBlock(title: String, message: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                Text(title)
+                    .font(.resultPopoverMedium)
+                    .foregroundStyle(ResultPopoverPalette.baseText)
+            }
+
+            Text(message)
+                .font(.resultPopoverBody)
+                .foregroundStyle(ResultPopoverPalette.baseText)
+                .lineSpacing(3)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func messageBlock(title: String, message: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.resultPopoverMedium)
+                .foregroundStyle(ResultPopoverPalette.baseText)
+
+            Text(message)
+                .font(.resultPopoverBody)
+                .foregroundStyle(ResultPopoverPalette.baseText)
+                .lineSpacing(3)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var footer: some View {
+        HStack(spacing: 5) {
+            iconFooterButton(symbol: "pencil", action: {})
+                .disabled(true)
+
+            iconFooterButton(symbol: "arrow.clockwise", action: onRetry)
+                .disabled(displayState == .recognizing)
+
+            Spacer(minLength: 0)
+
+            textFooterButton(
+                title: "翻译",
+                symbol: "globe",
+                style: .secondary,
+                action: presentSystemTranslation
+            )
+            .disabled(!canTranslateCurrentText)
+
+            textFooterButton(
+                title: "拷贝文本",
+                symbol: "document.on.document",
+                style: .primary,
+                action: onCopy
+            )
+            .disabled(recognizedText.isEmpty || displayState != .result)
+        }
+    }
+
+    private func iconFooterButton(symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.resultPopoverButton)
+                .foregroundStyle(ResultPopoverPalette.secondaryText)
+                .frame(width: 24, height: 24)
+                .background(ResultPopoverPalette.softFill, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private enum FooterButtonStyle {
+        case primary
+        case secondary
+    }
+
+    private func textFooterButton(
+        title: String,
+        symbol: String,
+        style: FooterButtonStyle,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: symbol)
+                    .font(.resultPopoverButton)
+                Text(title)
+                    .font(.resultPopoverButton)
+            }
+            .foregroundStyle(style == .primary ? Color.white : ResultPopoverPalette.secondaryText)
+            .padding(.horizontal, 8)
+            .frame(height: 24)
+            .background(
+                (style == .primary ? Color.black : ResultPopoverPalette.softFill),
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var usesCompactTextLayout: Bool {
         placementMode == .followMouse && displayState == .result
+    }
+
+    private var cardHeight: CGFloat {
+        guard displayState == .result else {
+            return ResultPopoverLayout.contentCardHeight
+        }
+
+        return ResultPopoverLayout.resultCardHeight(for: recognizedText)
     }
 
     private var translationSourceText: String {
@@ -379,43 +504,37 @@ struct ResultPopoverContentView: View {
 
     @ViewBuilder
     private var translationPane: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider()
+                .overlay(Color.black.opacity(0.08))
+
             HStack {
                 Text("翻译结果")
-                    .font(.headline)
+                    .font(.resultPopoverMedium)
+                    .foregroundStyle(ResultPopoverPalette.baseText)
                 Spacer()
                 if resultState.isTranslating {
                     ProgressView()
                         .controlSize(.small)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 12)
 
             Group {
                 if !resultState.translatedText.isEmpty {
-                    TextEditor(text: .constant(resultState.translatedText))
-                        .font(.body)
-                        .scrollContentBackground(.hidden)
-                        .padding(12)
+                    Text(resultState.translatedText)
                 } else if let translationErrorMessage = resultState.translationErrorMessage {
                     Text(translationErrorMessage)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .padding(12)
                 } else if resultState.isTranslating {
-                    Text("正在使用系统翻译处理当前文本...")
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .padding(12)
+                    Text("正在使用系统翻译处理当前文本…")
                 } else {
-                    Text("点击“系统翻译”后，这里会显示翻译结果。")
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .padding(12)
+                    Text("点击“翻译”后，这里会显示结果。")
                 }
             }
-            .frame(minHeight: 120, maxHeight: 160, alignment: .topLeading)
+            .font(.resultPopoverBody)
+            .foregroundStyle(ResultPopoverPalette.baseText)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .textSelection(.enabled)
         }
     }
 
@@ -452,31 +571,6 @@ struct ResultPopoverContentView: View {
             )
         }
 #endif
-    }
-
-    private func sectionCard<Content: View>(
-        title: String,
-        contentPadding: CGFloat = 12,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.headline)
-
-            content()
-                .padding(contentPadding)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(sectionBackground)
-        }
-    }
-
-    private var sectionBackground: some View {
-        RoundedRectangle(cornerRadius: ResultPopoverSectionStyle.cornerRadius, style: .continuous)
-            .fill(Color(nsColor: .controlBackgroundColor))
-            .overlay(
-                RoundedRectangle(cornerRadius: ResultPopoverSectionStyle.cornerRadius, style: .continuous)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
-            )
     }
 }
 
