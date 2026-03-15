@@ -39,12 +39,18 @@
 │   │   ├── Models
 │   │   │   ├── AppSettings.swift
 │   │   │   └── OCRResult.swift
+│   │   │   └── RecognitionResultState.swift
 │   │   ├── Services
+│   │   │   ├── CaptureTriggerController.swift
 │   │   │   ├── CaptureService.swift
 │   │   │   ├── HotkeyController.swift
 │   │   │   └── OCRService.swift
+│   │   │   └── RecognitionWorkflow.swift
 │   │   └── UI
 │   │       ├── ResultPopoverController.swift
+│   │       ├── ResultPopoverContentView.swift
+│   │       ├── ResultPopoverPreviewSupport.swift
+│   │       ├── ResultPopoverStyles.swift
 │   │       ├── ResultPopoverView.swift
 │   │       ├── SettingsView.swift
 │   │       └── SettingsWindowController.swift
@@ -83,18 +89,24 @@
 
 - `AppSettings`：持久化用户设置，当前主要是快捷键
 - `OCRResult` / `OCRLine`：OCR 输出结果模型
+- `RecognitionResultState`：识别结果、输出模式、预览图和错误信息状态
 
 #### `Services`
 
+- `CaptureTriggerController`：管理快捷键注册、设置联动和选择阶段的 `Fn` 释放监测
 - `CaptureService`：屏幕录制权限、系统截图
 - `HotkeyController`：全局快捷键注册、纯修饰键监听和 `Fn` 激活监听
 - `OCRService`：Vision 文本识别与图像增强
+- `RecognitionWorkflow`：串联权限检查、截图、OCR 和取消等主流程动作
 
 #### `UI`
 
 - `ResultPopoverController`：菜单栏图标、右键菜单、自定义浮动面板管理
 - `ResultPopoverController` 支持按菜单栏图标或鼠标位置显示结果面板
-- `ResultPopoverView`：识别结果及错误状态的 SwiftUI 视图
+- `ResultPopoverView`：结果面板入口包装，连接 `AppCoordinator`
+- `ResultPopoverContentView`：结果面板主内容和各状态切换
+- `ResultPopoverStyles`：面板布局、玻璃容器和按钮样式
+- `ResultPopoverPreviewSupport`：预览宿主和预览工厂
 - `SettingsWindowController` / `SettingsView`：设置窗口与快捷键编辑 UI
 
 ### `TextGrabberPreviewApp`
@@ -174,7 +186,7 @@
 
 ## Architectural Notes
 
-1. 当前架构偏轻量单协调器模式，适合小型工具型应用。
-2. `AppCoordinator` 已经承担较多职责，后续若功能继续扩展，可考虑把面板状态管理和识别任务管理进一步拆分。
-3. 真实工具与预览宿主共用 `TextGrabberKit`，这是当前保持 UI 开发效率的重要结构。
+1. 当前架构已经从单协调器模式开始向“协调器 + 触发控制 + workflow + 结果状态”拆分。
+2. `AppCoordinator` 已将识别结果相关状态下沉到 `RecognitionResultState`，将权限检查、截图、OCR 等动作下沉到 `RecognitionWorkflow`，并将快捷键与选择阶段控制下沉到 `CaptureTriggerController`。
+3. 结果面板 UI 已拆成入口、内容、样式和预览支撑四层，后续调整某一层时更不容易波及已稳定部分。
 4. `templates/collaboration-starter` 提供了一套可复制到新仓库的协作初始化包。

@@ -84,8 +84,14 @@
 - `Sources/TextGrabberKit/AppCoordinator.swift`  
   主流程编排中心，串联快捷键、截图、OCR、弹窗状态与设置。
 
+- `Sources/TextGrabberKit/Models/RecognitionResultState.swift`  
+  管理识别结果文本、输出模式、截图预览和错误信息。
+
 - `Sources/TextGrabberKit/Services/CaptureService.swift`  
   处理屏幕录制权限与系统截图调用。
+
+- `Sources/TextGrabberKit/Services/CaptureTriggerController.swift`  
+  管理快捷键注册、设置联动和选择阶段的触发控制。
 
 - `Sources/TextGrabberKit/Services/OCRService.swift`  
   负责 Vision OCR 识别和简单图像增强。
@@ -93,11 +99,20 @@
 - `Sources/TextGrabberKit/Services/HotkeyController.swift`  
   管理全局快捷键注册及纯修饰键监听。
 
+- `Sources/TextGrabberKit/Services/RecognitionWorkflow.swift`  
+  串联权限检查、截图、OCR、取消等识别流程动作。
+
 - `Sources/TextGrabberKit/UI/ResultPopoverController.swift`  
   管理菜单栏状态项与结果浮动面板。
 
 - `Sources/TextGrabberKit/UI/ResultPopoverView.swift`  
-  结果面板 SwiftUI 视图与预览宿主核心实现。
+  结果面板入口包装，连接协调器与内容视图。
+
+- `Sources/TextGrabberKit/UI/ResultPopoverContentView.swift`  
+  结果面板的主内容和状态切换。
+
+- `Sources/TextGrabberKit/UI/ResultPopoverStyles.swift`  
+  面板布局常量、玻璃效果和按钮样式。
 
 - `Sources/TextGrabberKit/UI/SettingsView.swift`  
   快捷键设置界面。

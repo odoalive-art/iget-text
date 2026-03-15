@@ -54,7 +54,7 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
     }
 
     func showError(message: String) {
-        coordinator.lastErrorMessage = message
+        coordinator.resultState.setErrorMessage(message)
         showCurrentState()
     }
 

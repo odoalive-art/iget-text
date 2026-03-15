@@ -1,5 +1,4 @@
 import AppKit
-import Combine
 
 @MainActor
 public final class AppCoordinator: ObservableObject {
@@ -20,56 +19,38 @@ public final class AppCoordinator: ObservableObject {
 
     @Published var workflowState: WorkflowState = .idle
     @Published var popoverState: PopoverContentState = .idle
-    @Published var outputMode: OCRTextOutputMode = .readingOptimized
-    @Published var recognizedText = ""
-    @Published var capturedPreviewImage: NSImage?
     @Published var statusMessage = "按住快捷键开始框选识别"
-    @Published var lastErrorMessage: String?
 
     let settings: AppSettings
+    let resultState = RecognitionResultState()
 
-    private let captureService = CaptureService()
-    private var hotkeyController: HotkeyController?
+    private let triggerController: CaptureTriggerController
+    private let workflow: RecognitionWorkflow
     private var popoverController: ResultPopoverController?
     private var settingsWindowController: SettingsWindowController?
-    private var cancellables = Set<AnyCancellable>()
     private var lastCapturedImage: CGImage?
-    private var lastOCRResult: OCRResult?
-    private var isShortcutKeyDown = false
-    private var activationReleaseMonitorTask: Task<Void, Never>?
 
     public init(settings: AppSettings) {
         self.settings = settings
+        self.triggerController = CaptureTriggerController(settings: settings)
+        self.workflow = RecognitionWorkflow()
+    }
+
+    init(
+        settings: AppSettings,
+        workflow: RecognitionWorkflow,
+        triggerController: CaptureTriggerController
+    ) {
+        self.settings = settings
+        self.workflow = workflow
+        self.triggerController = triggerController
     }
 
     public func start() {
-        let hotkeyController = HotkeyController()
-        self.hotkeyController = hotkeyController
-
-        hotkeyController.onPress = { [weak self] in
+        triggerController.onTrigger = { [weak self] in
             self?.handleHotkeyPressed()
         }
-
-        hotkeyController.onRelease = { [weak self] in
-            self?.handleHotkeyReleased()
-        }
-
-        if !hotkeyController.updateActivation(mode: settings.activationMode, shortcut: settings.hotkey) {
-            settings.resetHotkey()
-            _ = hotkeyController.updateActivation(mode: settings.activationMode, shortcut: settings.hotkey)
-        }
-
-        settings.$hotkey
-            .combineLatest(settings.$activationMode)
-            .dropFirst()
-            .sink { [weak self] shortcut, activationMode in
-                guard let self else { return }
-                if !(self.hotkeyController?.updateActivation(mode: activationMode, shortcut: shortcut) ?? false) {
-                    self.settings.resetHotkey()
-                    _ = self.hotkeyController?.updateActivation(mode: self.settings.activationMode, shortcut: self.settings.hotkey)
-                }
-            }
-            .store(in: &cancellables)
+        triggerController.start()
 
         popoverController = ResultPopoverController(coordinator: self)
     }
@@ -77,12 +58,10 @@ public final class AppCoordinator: ObservableObject {
     func handleHotkeyPressed() {
         guard workflowState == .idle || workflowState == .resultVisible else { return }
 
-        isShortcutKeyDown = true
-        lastErrorMessage = nil
-        capturedPreviewImage = nil
+        resultState.resetForNewCapture()
         popoverController?.hide()
 
-        guard captureService.ensureScreenCapturePermission() else {
+        guard workflow.ensureScreenCapturePermission() else {
             workflowState = .idle
             popoverState = .permission
             statusMessage = "需要开启屏幕录制权限后才能识别截图。"
@@ -93,15 +72,18 @@ public final class AppCoordinator: ObservableObject {
         workflowState = .selecting
         popoverState = .idle
         statusMessage = "请使用系统截图框选要识别的区域。"
-        beginActivationReleaseMonitoringIfNeeded()
+        triggerController.beginSelectionMonitoring(
+            isSelectionActive: { [weak self] in
+                self?.workflowState == .selecting
+            },
+            cancelSelection: { [weak self] in
+                self?.workflow.cancelInteractiveSelection()
+            }
+        )
 
         Task {
             await captureAndRecognize()
         }
-    }
-
-    func handleHotkeyReleased() {
-        isShortcutKeyDown = false
     }
 
     func retryLastSelection() {
@@ -113,13 +95,12 @@ public final class AppCoordinator: ObservableObject {
 
     func copyRecognizedText() {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(recognizedText, forType: .string)
+        NSPasteboard.general.setString(resultState.recognizedText, forType: .string)
         statusMessage = "识别结果已复制到剪贴板。"
     }
 
     func setOutputMode(_ mode: OCRTextOutputMode) {
-        outputMode = mode
-        applyRecognizedTextForCurrentMode()
+        resultState.setOutputMode(mode)
     }
 
     func closePopover() {
@@ -146,26 +127,27 @@ public final class AppCoordinator: ObservableObject {
     }
 
     func openScreenRecordingPreferences() {
-        captureService.openScreenRecordingPreferences()
+        workflow.openScreenRecordingPreferences()
     }
 
     private func showResult(_ result: OCRResult) {
-        lastOCRResult = result
-        applyRecognizedTextForCurrentMode()
+        resultState.showResult(result)
         workflowState = .resultVisible
         popoverState = .result
-        statusMessage = recognizedText == "未识别到文本" ? "未识别到文本。" : "识别完成，可直接复制或编辑。"
+        statusMessage = resultState.recognizedText == "未识别到文本" ? "未识别到文本。" : "识别完成，可直接复制或编辑。"
         popoverController?.show(result: result)
     }
 
     private func captureAndRecognize() async {
         defer {
-            stopActivationReleaseMonitoring()
+            triggerController.stopSelectionMonitoring()
         }
 
         do {
-            let image = try await captureService.captureInteractiveSelection()
-            await recognize(image: image)
+            let output = try await workflow.captureAndRecognize(languages: settings.ocrLanguages)
+            lastCapturedImage = output.image
+            resultState.setCapturedImage(output.image)
+            showResult(output.result)
         } catch {
             workflowState = .idle
 
@@ -176,7 +158,7 @@ public final class AppCoordinator: ObservableObject {
             }
 
             popoverState = .error
-            lastErrorMessage = error.localizedDescription
+            resultState.setErrorMessage(error.localizedDescription)
             statusMessage = error.localizedDescription
             popoverController?.showError(message: error.localizedDescription)
         }
@@ -190,48 +172,16 @@ public final class AppCoordinator: ObservableObject {
 
         do {
             lastCapturedImage = image
-            capturedPreviewImage = NSImage(cgImage: image, size: .zero)
-            let ocrService = OCRService(languages: settings.ocrLanguages)
-            let result = try await ocrService.recognizeText(from: image)
+            resultState.setCapturedImage(image)
+            let result = try await workflow.recognize(image: image, languages: settings.ocrLanguages)
             showResult(result)
         } catch {
             workflowState = .idle
             popoverState = .error
-            lastErrorMessage = error.localizedDescription
+            resultState.setErrorMessage(error.localizedDescription)
             statusMessage = error.localizedDescription
             popoverController?.showError(message: error.localizedDescription)
         }
     }
 
-    private func beginActivationReleaseMonitoringIfNeeded() {
-        stopActivationReleaseMonitoring()
-
-        guard settings.activationMode == .functionKey else {
-            return
-        }
-
-        activationReleaseMonitorTask = Task { [weak self] in
-            while let self, !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(50))
-
-                await MainActor.run {
-                    guard self.workflowState == .selecting else { return }
-                    guard self.hotkeyController?.isFunctionKeyPressed() == true else {
-                        self.captureService.cancelInteractiveSelection()
-                        return
-                    }
-                }
-            }
-        }
-    }
-
-    private func stopActivationReleaseMonitoring() {
-        activationReleaseMonitorTask?.cancel()
-        activationReleaseMonitorTask = nil
-    }
-
-    private func applyRecognizedTextForCurrentMode() {
-        let text = lastOCRResult?.text(for: outputMode).trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        recognizedText = text.isEmpty ? "未识别到文本" : text
-    }
 }

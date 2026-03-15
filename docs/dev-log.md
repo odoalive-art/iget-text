@@ -27,6 +27,38 @@ Notes:
 Author: Codex
 
 Summary:
+- 将识别流程抽成独立 workflow 对象，降低 `AppCoordinator` 的流程耦合
+- 将快捷键与选择阶段控制抽成独立触发控制对象
+- 拆分结果面板 UI 结构，降低后续改动对已稳定界面的影响
+
+Changes:
+- 新增 `CaptureTriggerController`，承接快捷键注册、设置联动和 `Fn` 释放监测
+- 新增 `RecognitionWorkflow`，承接权限检查、截图、OCR 和取消流程
+- 新增 `RecognitionResultState`，承接结果展示相关状态
+- 将 `ResultPopoverView` 拆为入口包装、内容视图、样式支撑和预览支撑四个文件
+- 同步更新架构与 AI 上下文文档中的 UI 结构说明
+
+Files Modified:
+- `Sources/TextGrabberKit/AppCoordinator.swift`
+- `Sources/TextGrabberKit/Services/CaptureTriggerController.swift`
+- `Sources/TextGrabberKit/Models/RecognitionResultState.swift`
+- `Sources/TextGrabberKit/Services/RecognitionWorkflow.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverView.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverContentView.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverStyles.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverPreviewSupport.swift`
+- `docs/architecture.md`
+- `docs/ai-context.md`
+- `docs/dev-log.md`
+
+Notes:
+- 本次以结构拆分为主，功能行为保持不变，`swift test` 已通过
+
+## 2026-03-15
+
+Author: Codex
+
+Summary:
 - 按“开始开发”命令补充设置与快捷键相关测试
 - 同步协作文档中的测试覆盖说明
 - 继续补充快捷键事件解析与纯修饰键判定测试
