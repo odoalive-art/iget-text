@@ -15,10 +15,6 @@ let package = Package(
         .executable(
             name: "TextGrabber",
             targets: ["TextGrabberApp"]
-        ),
-        .executable(
-            name: "TextGrabberPreview",
-            targets: ["TextGrabberPreviewApp"]
         )
     ],
     targets: [
@@ -30,11 +26,6 @@ let package = Package(
             name: "TextGrabberApp",
             dependencies: ["TextGrabberKit"],
             path: "Sources/TextGrabberApp"
-        ),
-        .executableTarget(
-            name: "TextGrabberPreviewApp",
-            dependencies: ["TextGrabberKit"],
-            path: "Sources/TextGrabberPreviewApp"
         ),
         .testTarget(
             name: "TextGrabberTests",

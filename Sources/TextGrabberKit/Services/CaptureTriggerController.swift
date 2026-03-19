@@ -10,9 +10,9 @@ final class CaptureTriggerController {
     private var cancellables = Set<AnyCancellable>()
     private var activationReleaseMonitorTask: Task<Void, Never>?
 
-    init(settings: AppSettings, hotkeyController: HotkeyController = HotkeyController()) {
+    init(settings: AppSettings, hotkeyController: HotkeyController? = nil) {
         self.settings = settings
-        self.hotkeyController = hotkeyController
+        self.hotkeyController = hotkeyController ?? HotkeyController()
     }
 
     func start() {

@@ -10,8 +10,8 @@ struct RecognitionWorkflowOutput: Sendable {
 final class RecognitionWorkflow {
     private let captureService: CaptureService
 
-    init(captureService: CaptureService = CaptureService()) {
-        self.captureService = captureService
+    init(captureService: CaptureService? = nil) {
+        self.captureService = captureService ?? CaptureService()
     }
 
     func ensureScreenCapturePermission() -> Bool {

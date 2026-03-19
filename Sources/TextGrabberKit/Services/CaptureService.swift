@@ -21,6 +21,29 @@ enum CaptureError: LocalizedError, Equatable {
     }
 }
 
+enum CaptureResultClassifier {
+    static func classify(
+        terminationStatus: Int32,
+        fileExists: Bool,
+        fileSize: UInt64,
+        hasImage: Bool
+    ) -> Result<Void, CaptureError> {
+        if terminationStatus != 0 {
+            return .failure(.cancelled)
+        }
+
+        if hasImage {
+            return .success(())
+        }
+
+        if !fileExists || fileSize == 0 {
+            return .failure(.cancelled)
+        }
+
+        return .failure(.imageUnavailable)
+    }
+}
+
 @MainActor
 final class CaptureService {
     private var interactiveCaptureProcess: Process?
@@ -59,6 +82,8 @@ final class CaptureService {
                 }
 
                 let terminationStatus = process.terminationStatus
+                let fileExists = FileManager.default.fileExists(atPath: temporaryURL.path)
+                let fileSize = (try? temporaryURL.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(UInt64.init) ?? 0
                 let image = NSImage(contentsOf: temporaryURL)?
                     .cgImage(forProposedRect: nil, context: nil, hints: nil)
 
@@ -67,17 +92,22 @@ final class CaptureService {
                         self?.interactiveCaptureProcess = nil
                     }
 
-                    if terminationStatus != 0 {
-                        continuation.resume(throwing: CaptureError.cancelled)
+                    switch CaptureResultClassifier.classify(
+                    terminationStatus: terminationStatus,
+                    fileExists: fileExists,
+                    fileSize: fileSize,
+                    hasImage: image != nil
+                    ) {
+                    case .success:
+                        guard let image else {
+                            continuation.resume(throwing: CaptureError.imageUnavailable)
+                            return
+                        }
+                        continuation.resume(returning: image)
+                    case let .failure(error):
+                        continuation.resume(throwing: error)
                         return
                     }
-
-                    guard let image else {
-                        continuation.resume(throwing: CaptureError.imageUnavailable)
-                        return
-                    }
-
-                    continuation.resume(returning: image)
                 }
             }
 

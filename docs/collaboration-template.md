@@ -148,6 +148,6 @@
 当前 `TextGrabber` 仓库已经按这套模板完成落地，并做了项目化替换：
 
 - 将业务目标替换为 macOS 菜单栏 OCR 工具
-- 将架构说明替换为 `TextGrabberKit + TextGrabberApp + TextGrabberPreviewApp`
+- 将架构说明替换为 `TextGrabberKit + TextGrabberApp`
 - 将待办替换为快捷键、OCR、结果面板和分发相关任务
 - 将回归用例替换为截图、权限、识别结果与设置流程

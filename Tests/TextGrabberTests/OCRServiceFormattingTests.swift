@@ -36,7 +36,7 @@ final class OCRServiceFormattingTests: XCTestCase {
         XCTAssertEqual(optimizedText, "1. 第一项\n2. 第二项")
     }
 
-    func testReadingOptimizedTextAddsBlankLineBetweenParagraphs() {
+    func testReadingOptimizedTextSeparatesParagraphsWithSingleLineBreak() {
         let lines = [
             OCRLayoutLine(text: "这是第一段第一行", confidence: 0.9, boundingBox: CGRect(x: 0.12, y: 0.78, width: 0.70, height: 0.05)),
             OCRLayoutLine(text: "这是第一段第二行", confidence: 0.9, boundingBox: CGRect(x: 0.12, y: 0.71, width: 0.72, height: 0.05)),
@@ -46,6 +46,6 @@ final class OCRServiceFormattingTests: XCTestCase {
 
         let optimizedText = OCRService.makeReadingOptimizedText(from: lines)
 
-        XCTAssertEqual(optimizedText, "这是第一段第一行这是第一段第二行\n\n这是第二段第一行这是第二段第二行")
+        XCTAssertEqual(optimizedText, "这是第一段第一行这是第一段第二行\n这是第二段第一行这是第二段第二行")
     }
 }

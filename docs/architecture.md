@@ -30,6 +30,8 @@
 │   ├── git-workflow.md
 │   ├── regression-cases.md
 │   └── todo.md
+├── scripts
+│   └── build-app.sh
 ├── Sources
 │   ├── TextGrabberApp
 │   │   ├── AppDelegate.swift
@@ -49,13 +51,10 @@
 │   │   └── UI
 │   │       ├── ResultPopoverController.swift
 │   │       ├── ResultPopoverContentView.swift
-│   │       ├── ResultPopoverPreviewSupport.swift
 │   │       ├── ResultPopoverStyles.swift
 │   │       ├── ResultPopoverView.swift
 │   │       ├── SettingsView.swift
 │   │       └── SettingsWindowController.swift
-│   └── TextGrabberPreviewApp
-│       └── TextGrabberPreviewApp.swift
 └── Tests
     └── TextGrabberTests
         └── SelectionSessionTests.swift
@@ -107,20 +106,10 @@
 - `ResultPopoverController` 支持按菜单栏图标或鼠标位置显示结果面板，并会在结果内容变化时重新计算面板尺寸
 - `ResultPopoverView`：结果面板入口包装，连接 `AppCoordinator`
 - `ResultPopoverContentView`：结果面板主内容和各状态切换，并承接系统翻译入口以及预览区/文本区自适应布局
+- `ResultPopoverDebugWindowController`：`DEBUG` 构建下的 UI 调试面板，可在主程序内切换假数据场景和布局
 - `ResultPopoverStyles`：面板布局、玻璃容器、按钮样式和结果面板自适应尺寸规则
-- `ResultPopoverPreviewSupport`：预览宿主和预览工厂
 - `SettingsWindowController` / `SettingsView`：设置窗口与快捷键编辑 UI
-- `AppSettings` 现已持久化翻译来源策略，为后续“在线优先、系统回退”预留开关
-
-### `TextGrabberPreviewApp`
-
-独立 UI 预览宿主。
-
-用途：
-
-- 在不依赖 Xcode Canvas 的情况下调试结果面板
-- 快速切换结果、识别中、权限等状态
-- 降低预览链路不稳定对开发效率的影响
+- `AppSettings` 现已持久化翻译来源策略，支持“自动（在线优先，失败/超时后回退系统）”和“仅系统翻译”
 
 ### `TextGrabberTests`
 
@@ -194,11 +183,27 @@
 - `ApplicationServices`
 - `Carbon`
 - `/usr/sbin/screencapture`
+- `xcrun swift-stdlib-tool`
+- `/usr/bin/codesign`
+- `/usr/bin/ditto`
+
+## Packaging Flow
+
+`scripts/build-app.sh` 会执行以下步骤：
+
+1. 通过 `swift build -c release --product TextGrabber` 构建真实菜单栏应用
+2. 在 `dist/TextGrabber.app` 下创建标准 macOS App Bundle 目录结构
+3. 写入 `Info.plist`，声明菜单栏应用所需的 bundle 元信息
+4. 复制主可执行文件到 `Contents/MacOS`
+5. 使用 `swift-stdlib-tool` 将 Swift 运行库拷贝到 `Contents/Frameworks`
+6. 使用 `codesign` 做 ad-hoc 或指定身份签名
+7. 按需用 `ditto` 额外产出 zip 归档包
 
 ## Architectural Notes
 
 1. 当前架构已经从单协调器模式开始向“协调器 + 触发控制 + workflow + 结果状态”拆分。
 2. `AppCoordinator` 已将识别结果相关状态下沉到 `RecognitionResultState`，将权限检查、截图、OCR 等动作下沉到 `RecognitionWorkflow`，并将快捷键与选择阶段控制下沉到 `CaptureTriggerController`。
-3. 结果面板 UI 已拆成入口、内容、样式和预览支撑四层，后续调整某一层时更不容易波及已稳定部分。
+3. 结果面板 UI 已拆成入口、内容和样式三层，后续调整某一层时更不容易波及已稳定部分。
 4. `templates/collaboration-starter` 提供了一套可复制到新仓库的协作初始化包。
 5. `TranslationServiceResolver` 会根据设置和环境变量决定走在线翻译还是系统翻译；当前“自动”策略在检测到在线 provider 配置时会优先在线，失败后再回退系统。
+6. 当前分发层仍以脚本打包为主，还没有引入 Xcode 工程、图标资源编译或 notarization 自动化。

@@ -2,6 +2,74 @@ import AppKit
 import Combine
 import SwiftUI
 
+struct ResultPanelAnchorState {
+    private(set) var followMouseAnchor: NSPoint?
+
+    mutating func prepareForPresentation(
+        placement: ResultPanelPlacementMode,
+        mouseLocation: NSPoint,
+        isNewPresentation: Bool
+    ) {
+        switch placement {
+        case .statusItem:
+            followMouseAnchor = nil
+        case .followMouse:
+            if isNewPresentation || followMouseAnchor == nil {
+                followMouseAnchor = mouseLocation
+            }
+        }
+    }
+
+    func resolvedMouseLocation(currentMouseLocation: NSPoint) -> NSPoint {
+        followMouseAnchor ?? currentMouseLocation
+    }
+
+    mutating func reset() {
+        followMouseAnchor = nil
+    }
+}
+
+enum ResultPanelPlacementGeometry {
+    static func mouseFollowPanelFrame(
+        anchorLocation: NSPoint,
+        visibleFrame: NSRect,
+        panelSize: NSSize,
+        margin: CGFloat = 12
+    ) -> NSRect {
+        let width = panelSize.width
+        let height = panelSize.height
+
+        var originX = anchorLocation.x + margin
+        var originY = anchorLocation.y - height - margin
+
+        if originX + width > visibleFrame.maxX - margin {
+            originX = anchorLocation.x - width - margin
+        }
+        if originY < visibleFrame.minY + margin {
+            originY = min(anchorLocation.y + margin, visibleFrame.maxY - height - margin)
+        }
+
+        originX = min(max(originX, visibleFrame.minX + margin), visibleFrame.maxX - width - margin)
+        originY = min(max(originY, visibleFrame.minY + margin), visibleFrame.maxY - height - margin)
+
+        return NSRect(x: originX, y: originY, width: width, height: height)
+    }
+}
+
+enum ResultPanelDismissalPolicy {
+    static func shouldHideOnResignKey(isPinned: Bool, isTranslating: Bool) -> Bool {
+        !isPinned && !isTranslating
+    }
+
+    static func shouldRestoreAfterAppDeactivation(
+        isPinned: Bool,
+        isPanelVisible: Bool,
+        isShowingResult: Bool
+    ) -> Bool {
+        isPinned && isPanelVisible && isShowingResult
+    }
+}
+
 @MainActor
 final class ResultPopoverController: NSObject, NSWindowDelegate {
     private let coordinator: AppCoordinator
@@ -9,6 +77,7 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
     private let panel: ResultFloatingPanel
     private let hostingController: NSHostingController<ResultPopoverView>
     private var cancellables = Set<AnyCancellable>()
+    private var anchorState = ResultPanelAnchorState()
 
     init(coordinator: AppCoordinator) {
         self.coordinator = coordinator
@@ -61,6 +130,7 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
     }
 
     func hide() {
+        anchorState.reset()
         panel.orderOut(nil)
     }
 
@@ -78,10 +148,17 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
         panel.delegate = self
         panel.contentViewController = hostingController
         panel.setContentSize(currentPanelSize())
+        applyPinningState()
+        observeApplicationState()
         observePanelSizingInputs()
     }
 
     private func showCurrentState() {
+        anchorState.prepareForPresentation(
+            placement: coordinator.settings.resultPanelPlacement,
+            mouseLocation: NSEvent.mouseLocation,
+            isNewPresentation: !panel.isVisible
+        )
         panel.setContentSize(currentPanelSize())
         panel.setFrame(panelFrame(), display: false)
         panel.makeKeyAndOrderFront(nil)
@@ -89,11 +166,16 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
     }
 
     private func currentPanelSize() -> NSSize {
-        if coordinator.popoverState == .result {
+        if coordinator.popoverState == .result || coordinator.popoverState == .idle {
             return NSSize(
                 width: ResultPopoverLayout.width,
                 height: ResultPopoverLayout.resultPanelHeight(
                     text: coordinator.resultState.recognizedText,
+                    translationText: currentTranslationDisplayText(),
+                    showsTranslationPane: coordinator.resultState.isTranslating ||
+                        !coordinator.resultState.translatedText.isEmpty ||
+                        coordinator.resultState.translationErrorMessage != nil,
+                    outputMode: coordinator.resultState.outputMode,
                     image: coordinator.resultState.capturedPreviewImage,
                     includePreview: coordinator.settings.resultPanelPlacement != .followMouse
                 )
@@ -119,6 +201,24 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
             }
             .store(in: &cancellables)
 
+        coordinator.resultState.$translatedText
+            .sink { [weak self] _ in
+                self?.refreshVisiblePanelLayout()
+            }
+            .store(in: &cancellables)
+
+        coordinator.resultState.$translationErrorMessage
+            .sink { [weak self] _ in
+                self?.refreshVisiblePanelLayout()
+            }
+            .store(in: &cancellables)
+
+        coordinator.resultState.$isTranslating
+            .sink { [weak self] _ in
+                self?.refreshVisiblePanelLayout()
+            }
+            .store(in: &cancellables)
+
         coordinator.$popoverState
             .sink { [weak self] _ in
                 self?.refreshVisiblePanelLayout()
@@ -130,10 +230,48 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
                 self?.refreshVisiblePanelLayout()
             }
             .store(in: &cancellables)
+
+        coordinator.$isResultPanelPinned
+            .sink { [weak self] _ in
+                self?.applyPinningState()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func applyPinningState() {
+        panel.shouldRemainVisibleWhenInactive = coordinator.isResultPanelPinned
+        panel.collectionBehavior = coordinator.isResultPanelPinned
+            ? [.moveToActiveSpace]
+            : [.transient, .moveToActiveSpace]
+    }
+
+    private func observeApplicationState() {
+        NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
+            .sink { [weak self] _ in
+                self?.restorePinnedPanelIfNeeded()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func restorePinnedPanelIfNeeded() {
+        guard ResultPanelDismissalPolicy.shouldRestoreAfterAppDeactivation(
+            isPinned: coordinator.isResultPanelPinned,
+            isPanelVisible: panel.isVisible,
+            isShowingResult: coordinator.popoverState == .result
+        ) else {
+            return
+        }
+
+        panel.orderFrontRegardless()
     }
 
     private func refreshVisiblePanelLayout() {
         guard panel.isVisible else { return }
+        anchorState.prepareForPresentation(
+            placement: coordinator.settings.resultPanelPlacement,
+            mouseLocation: NSEvent.mouseLocation,
+            isNewPresentation: false
+        )
         panel.setContentSize(currentPanelSize())
         panel.setFrame(panelFrame(), display: true)
     }
@@ -171,31 +309,40 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
     }
 
     private func mouseFollowPanelFrame() -> NSRect {
-        let mouseLocation = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) ?? NSScreen.main
+        let anchorLocation = anchorState.resolvedMouseLocation(currentMouseLocation: NSEvent.mouseLocation)
+        let screen = NSScreen.screens.first(where: { NSMouseInRect(anchorLocation, $0.frame, false) }) ?? NSScreen.main
         let visibleFrame = screen?.visibleFrame ?? .zero
-        let width = panel.frame.width
-        let height = panel.frame.height
-        let margin: CGFloat = 12
+        return ResultPanelPlacementGeometry.mouseFollowPanelFrame(
+            anchorLocation: anchorLocation,
+            visibleFrame: visibleFrame,
+            panelSize: panel.frame.size
+        )
+    }
 
-        var originX = mouseLocation.x + margin
-        var originY = mouseLocation.y - height - margin
-
-        if originX + width > visibleFrame.maxX - margin {
-            originX = mouseLocation.x - width - margin
-        }
-        if originY < visibleFrame.minY + margin {
-            originY = min(mouseLocation.y + margin, visibleFrame.maxY - height - margin)
+    private func currentTranslationDisplayText() -> String? {
+        if !coordinator.resultState.translatedText.isEmpty {
+            return coordinator.resultState.translatedText
         }
 
-        originX = min(max(originX, visibleFrame.minX + margin), visibleFrame.maxX - width - margin)
-        originY = min(max(originY, visibleFrame.minY + margin), visibleFrame.maxY - height - margin)
+        if let translationErrorMessage = coordinator.resultState.translationErrorMessage {
+            return translationErrorMessage
+        }
 
-        return NSRect(x: originX, y: originY, width: width, height: height)
+        if coordinator.resultState.isTranslating {
+            return "正在翻译当前文本…"
+        }
+
+        return nil
     }
 
     func windowDidResignKey(_ notification: Notification) {
-        guard !coordinator.resultState.isTranslating else { return }
+        guard ResultPanelDismissalPolicy.shouldHideOnResignKey(
+            isPinned: coordinator.isResultPanelPinned,
+            isTranslating: coordinator.resultState.isTranslating
+        ) else {
+            return
+        }
+
         hide()
     }
 
@@ -216,6 +363,9 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
     private func showMenu() {
         let menu = NSMenu()
         menu.addItem(withTitle: "开始识别", action: #selector(beginRecognition), keyEquivalent: "")
+        #if DEBUG
+        menu.addItem(withTitle: "UI 调试面板", action: #selector(openUIDebugPanel), keyEquivalent: "")
+        #endif
         menu.addItem(.separator())
         menu.addItem(withTitle: "设置...", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(withTitle: "退出", action: #selector(quit), keyEquivalent: "q")
@@ -236,20 +386,38 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
         coordinator.showSettings()
     }
 
+    #if DEBUG
+    @objc
+    private func openUIDebugPanel() {
+        coordinator.showUIDebugPanel()
+    }
+    #endif
+
     @objc
     private func quit() {
         coordinator.quitApplication()
     }
 }
 
-private final class ResultFloatingPanel: NSPanel {
+private final class ResultFloatingPanel: NSWindow {
     var onEscape: (() -> Void)?
+    var shouldRemainVisibleWhenInactive = false
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
     override func cancelOperation(_ sender: Any?) {
         onEscape?()
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        keepVisibleIfNeeded()
+    }
+
+    override func resignMain() {
+        super.resignMain()
+        keepVisibleIfNeeded()
     }
 
     init(contentRect: NSRect) {
@@ -268,5 +436,13 @@ private final class ResultFloatingPanel: NSPanel {
         collectionBehavior = [.transient, .moveToActiveSpace]
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
+    }
+
+    private func keepVisibleIfNeeded() {
+        guard shouldRemainVisibleWhenInactive, isVisible else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.shouldRemainVisibleWhenInactive, self.isVisible else { return }
+            self.orderFrontRegardless()
+        }
     }
 }

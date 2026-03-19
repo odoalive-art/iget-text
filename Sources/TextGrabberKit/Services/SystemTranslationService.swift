@@ -158,6 +158,10 @@ struct SystemTranslationService: TranslationServicing {
     }
 
     private func detectSourceLanguageIdentifier(for text: String) -> String? {
+        if let scriptPreferredLanguage = scriptPreferredSourceLanguageIdentifier(for: text) {
+            return scriptPreferredLanguage
+        }
+
         let recognizer = NLLanguageRecognizer()
         recognizer.processString(text)
 
@@ -166,6 +170,47 @@ struct SystemTranslationService: TranslationServicing {
         }
 
         return dominantLanguage
+    }
+
+    private func scriptPreferredSourceLanguageIdentifier(for text: String) -> String? {
+        let counts = scriptCounts(in: text)
+        guard counts.han > 0, counts.latin > 0 else {
+            if counts.han > 0 { return "zh-Hans" }
+            if counts.latin > 0 { return "en" }
+            return nil
+        }
+
+        let total = counts.han + counts.latin
+        guard total > 0 else { return nil }
+
+        let hanShare = Double(counts.han) / Double(total)
+        if hanShare >= 0.25 {
+            return "zh-Hans"
+        }
+
+        if hanShare <= 0.1 {
+            return "en"
+        }
+
+        return nil
+    }
+
+    private func scriptCounts(in text: String) -> (han: Int, latin: Int) {
+        var han = 0
+        var latin = 0
+
+        for scalar in text.unicodeScalars {
+            switch scalar.value {
+            case 0x4E00 ... 0x9FFF, 0x3400 ... 0x4DBF, 0xF900 ... 0xFAFF:
+                han += 1
+            default:
+                if CharacterSet.letters.contains(scalar), scalar.isASCII {
+                    latin += 1
+                }
+            }
+        }
+
+        return (han, latin)
     }
 
     private func targetLanguageIdentifier(for sourceLanguageIdentifier: String?) -> String {

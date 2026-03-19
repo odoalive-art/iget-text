@@ -47,7 +47,7 @@ enum TranslationProviderMode: String, Codable, CaseIterable {
     var helperText: String {
         switch self {
         case .automatic:
-            "预留在线优先、系统回退。当前版本尚未接入在线翻译，暂时等同系统翻译。"
+            "若配置了在线翻译 provider，会优先走在线翻译；失败或超时后会自动回退到系统翻译。"
         case .systemOnly:
             "仅使用系统翻译能力，适合更看重本地能力和系统一致性的场景。"
         }

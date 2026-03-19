@@ -265,5 +265,5 @@ private func paragraphSeparator(between previous: String, and next: String) -> S
         return "\n"
     }
 
-    return "\n\n"
+    return "\n"
 }

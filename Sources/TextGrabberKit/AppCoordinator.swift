@@ -20,6 +20,7 @@ public final class AppCoordinator: ObservableObject {
     @Published var workflowState: WorkflowState = .idle
     @Published var popoverState: PopoverContentState = .idle
     @Published var statusMessage = "按住快捷键开始框选识别"
+    @Published var isResultPanelPinned = false
 
     let settings: AppSettings
     let resultState = RecognitionResultState()
@@ -29,6 +30,9 @@ public final class AppCoordinator: ObservableObject {
     private let workflow: RecognitionWorkflow
     private var popoverController: ResultPopoverController?
     private var settingsWindowController: SettingsWindowController?
+    #if DEBUG
+    private var debugWindowController: ResultPopoverDebugWindowController?
+    #endif
     private var lastCapturedImage: CGImage?
 
     public init(settings: AppSettings) {
@@ -40,12 +44,12 @@ public final class AppCoordinator: ObservableObject {
 
     init(
         settings: AppSettings,
-        translationServiceResolver: TranslationServiceResolver = TranslationServiceResolver(),
+        translationServiceResolver: TranslationServiceResolver? = nil,
         workflow: RecognitionWorkflow,
         triggerController: CaptureTriggerController
     ) {
         self.settings = settings
-        self.translationServiceResolver = translationServiceResolver
+        self.translationServiceResolver = translationServiceResolver ?? TranslationServiceResolver()
         self.workflow = workflow
         self.triggerController = triggerController
     }
@@ -112,6 +116,10 @@ public final class AppCoordinator: ObservableObject {
         workflowState = .idle
     }
 
+    func toggleResultPanelPin() {
+        isResultPanelPinned.toggle()
+    }
+
     func togglePopoverFromStatusItem() {
         popoverController?.toggle()
     }
@@ -125,6 +133,18 @@ public final class AppCoordinator: ObservableObject {
         settingsWindowController?.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    #if DEBUG
+    func showUIDebugPanel() {
+        if debugWindowController == nil {
+            debugWindowController = ResultPopoverDebugWindowController()
+        }
+
+        debugWindowController?.showWindow(nil)
+        debugWindowController?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    #endif
 
     func quitApplication() {
         NSApp.terminate(nil)
@@ -156,6 +176,7 @@ public final class AppCoordinator: ObservableObject {
             workflowState = .idle
 
             if let captureError = error as? CaptureError, captureError == .cancelled {
+                popoverState = .idle
                 popoverController?.hide()
                 statusMessage = captureError.localizedDescription
                 return

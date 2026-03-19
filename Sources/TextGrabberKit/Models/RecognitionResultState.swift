@@ -10,12 +10,17 @@ final class RecognitionResultState: ObservableObject {
     @Published var translatedText = ""
     @Published var translationErrorMessage: String?
     @Published var isTranslating = false
+    @Published private(set) var textFocusRequestToken = 0
 
     private var lastOCRResult: OCRResult?
+    private var readingOptimizedDraft: String?
+    private var sourceLayoutDraft: String?
 
     func resetForNewCapture() {
         lastErrorMessage = nil
         capturedPreviewImage = nil
+        readingOptimizedDraft = nil
+        sourceLayoutDraft = nil
         resetTranslation()
     }
 
@@ -25,7 +30,7 @@ final class RecognitionResultState: ObservableObject {
 
     func setOutputMode(_ mode: OCRTextOutputMode) {
         outputMode = mode
-        applyRecognizedTextForCurrentMode()
+        recognizedText = displayText(for: mode)
     }
 
     func setErrorMessage(_ message: String?) {
@@ -62,11 +67,44 @@ final class RecognitionResultState: ObservableObject {
 
     func showResult(_ result: OCRResult) {
         lastOCRResult = result
-        applyRecognizedTextForCurrentMode()
+        readingOptimizedDraft = normalizedDisplayText(result.readingOptimizedText)
+        sourceLayoutDraft = normalizedDisplayText(result.rawText)
+        recognizedText = displayText(for: outputMode)
+        requestTextFocus()
     }
 
-    private func applyRecognizedTextForCurrentMode() {
-        let text = lastOCRResult?.text(for: outputMode).trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        recognizedText = text.isEmpty ? "未识别到文本" : text
+    func requestTextFocus() {
+        textFocusRequestToken += 1
+    }
+
+    func updateRecognizedText(_ text: String) {
+        recognizedText = text
+
+        switch outputMode {
+        case .readingOptimized:
+            readingOptimizedDraft = text
+        case .sourceLayout:
+            sourceLayoutDraft = text
+        }
+    }
+
+    private func displayText(for mode: OCRTextOutputMode) -> String {
+        switch mode {
+        case .readingOptimized:
+            if let readingOptimizedDraft {
+                return readingOptimizedDraft
+            }
+        case .sourceLayout:
+            if let sourceLayoutDraft {
+                return sourceLayoutDraft
+            }
+        }
+
+        let fallbackText = normalizedDisplayText(lastOCRResult?.text(for: mode) ?? "")
+        return fallbackText.isEmpty ? "未识别到文本" : fallbackText
+    }
+
+    private func normalizedDisplayText(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

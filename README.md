@@ -8,7 +8,7 @@
 - 调用系统原生截图交互完成区域框选
 - 调用 Apple `Vision` 做本地中文/英文 OCR
 - 识别结果通过状态栏浮窗展示，并支持截图与文本对照
-- 支持复制、简单编辑、重新识别
+- 支持复制、简单编辑、重新识别，以及固定结果窗口继续跨应用对照
 - 设置面板支持修改快捷键
 
 ## 运行方式
@@ -18,6 +18,29 @@
 ```bash
 swift run
 ```
+
+### 打包成应用
+
+```bash
+scripts/build-app.sh
+```
+
+默认会在 `dist/TextGrabber.app` 产出可双击启动的 macOS 应用包，并自动嵌入 Swift 运行库和做一次 ad-hoc 签名。
+
+如果希望顺手产出一个压缩包：
+
+```bash
+scripts/build-app.sh --archive
+```
+
+常用可选参数：
+
+```bash
+scripts/build-app.sh --version 0.1.0 --build-number 12
+scripts/build-app.sh --sign-identity "Developer ID Application: Your Name (TEAMID)"
+```
+
+当前脚本已经能完成本地分发所需的 `.app` 打包；如果要正式对外分发，下一步仍建议补充 Developer ID 签名与 notarization 流程。
 
 如需启用在线翻译 provider，可在运行前注入以下环境变量：
 
