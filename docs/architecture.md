@@ -27,6 +27,7 @@
 │   ├── architecture.md
 │   ├── collaboration-template.md
 │   ├── dev-log.md
+│   ├── packaging.md
 │   ├── git-workflow.md
 │   ├── regression-cases.md
 │   └── todo.md
@@ -184,17 +185,25 @@
 - `Carbon`
 - `/usr/sbin/screencapture`
 - `xcrun swift-stdlib-tool`
+- `/usr/bin/iconutil`
 - `/usr/bin/codesign`
 - `/usr/bin/ditto`
 
 ## Packaging Flow
 
+本机打包以 `scripts/build-app.sh` 为底层入口，并提供更短的一键入口：
+
+- `scripts/package-local.command`：可在 Finder 双击运行，清理旧产物后生成 `.app` 和 zip，并打开 `dist/`
+- `scripts/install-local.sh`：将 `dist/TextGrabber.app` 安装到 `/Applications/TextGrabber.app`
+- `Makefile`：提供 `make app`、`make package`、`make install`、`make icon` 等短命令
+- `docs/packaging.md`：记录完整打包、安装、验证和注意事项
+
 `scripts/build-app.sh` 会执行以下步骤：
 
 1. 通过 `swift build -c release --product TextGrabber` 构建真实菜单栏应用
 2. 在 `dist/TextGrabber.app` 下创建标准 macOS App Bundle 目录结构
-3. 写入 `Info.plist`，声明菜单栏应用所需的 bundle 元信息
-4. 复制主可执行文件到 `Contents/MacOS`
+3. 写入 `Info.plist`，声明菜单栏应用、图标、版本、权限文案等 bundle 元信息
+4. 复制主可执行文件到 `Contents/MacOS`，并复制 `Resources/TextGrabber.icns` 到 `Contents/Resources`
 5. 使用 `swift-stdlib-tool` 将 Swift 运行库拷贝到 `Contents/Frameworks`
 6. 使用 `codesign` 做 ad-hoc 或指定身份签名
 7. 按需用 `ditto` 额外产出 zip 归档包
@@ -206,4 +215,4 @@
 3. 结果面板 UI 已拆成入口、内容和样式三层，后续调整某一层时更不容易波及已稳定部分。
 4. `templates/collaboration-starter` 提供了一套可复制到新仓库的协作初始化包。
 5. `TranslationServiceResolver` 会根据设置和环境变量决定走在线翻译还是系统翻译；当前“自动”策略在检测到在线 provider 配置时会优先在线，失败后再回退系统。
-6. 当前分发层仍以脚本打包为主，还没有引入 Xcode 工程、图标资源编译或 notarization 自动化。
+6. 当前分发层仍以脚本打包为主，已支持本机一键 `.app` / zip / `/Applications` 安装；正式对外分发仍需后续补充 Developer ID 签名与 notarization。

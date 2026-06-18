@@ -961,25 +961,26 @@ private struct TranslationTaskBridge: View {
                 )
             }
             .translationTask(configuration) { session in
-                Task { @MainActor in
-                    do {
-                        try await session.prepareTranslation()
-                        guard performTranslation else {
-                            configuration = nil
-                            return
-                        }
-                        let translatedText = try await session.translate(plan.sourceText).targetText
-                        let trimmedText = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if trimmedText.isEmpty {
-                            onFailure("系统翻译未返回内容，请重试一次。")
-                        } else {
-                            onSuccess(trimmedText)
-                        }
+                // Swift 6.3 会将 `session` 视为主 actor 隔离值；先创建 nonisolated 别名，
+                // 再调用 TranslationSession 的 nonisolated async API，避免 SendingRisksDataRace 诊断。
+                nonisolated(unsafe) let translationSession = session
+                do {
+                    try await translationSession.prepareTranslation()
+                    guard performTranslation else {
                         configuration = nil
-                    } catch {
-                        onFailure(translationService.message(for: error, plan: plan))
-                        configuration = nil
+                        return
                     }
+                    let translatedText = try await translationSession.translate(plan.sourceText).targetText
+                    let trimmedText = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmedText.isEmpty {
+                        onFailure("系统翻译未返回内容，请重试一次。")
+                    } else {
+                        onSuccess(trimmedText)
+                    }
+                    configuration = nil
+                } catch {
+                    onFailure(translationService.message(for: error, plan: plan))
+                    configuration = nil
                 }
             }
     }

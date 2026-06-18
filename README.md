@@ -11,7 +11,7 @@
 - 支持复制、简单编辑、重新识别，以及固定结果窗口继续跨应用对照
 - 设置面板支持修改快捷键
 
-## 运行方式
+## 运行与打包
 
 ### 命令行
 
@@ -19,28 +19,51 @@
 swift run
 ```
 
-### 打包成应用
+### 一键打包成本机应用
+
+在 Finder 中双击：
+
+```text
+scripts/package-local.command
+```
+
+它会生成本机可双击启动的 `dist/TextGrabber.app`，同时产出 `dist/TextGrabber-0.1.0-macos.zip`，结束后自动打开 `dist/` 文件夹。
+
+也可以在终端中执行：
+
+```bash
+make package
+```
+
+### 安装到 Applications
+
+如果希望像普通 macOS 应用一样放进 `/Applications`：
+
+```bash
+scripts/install-local.sh
+```
+
+安装后立刻启动：
+
+```bash
+scripts/install-local.sh --launch
+```
+
+### 打包脚本参数
+
+底层脚本仍可直接调用：
 
 ```bash
 scripts/build-app.sh
-```
-
-默认会在 `dist/TextGrabber.app` 产出可双击启动的 macOS 应用包，并自动嵌入 Swift 运行库和做一次 ad-hoc 签名。
-
-如果希望顺手产出一个压缩包：
-
-```bash
 scripts/build-app.sh --archive
-```
-
-常用可选参数：
-
-```bash
+scripts/build-app.sh --clean --archive
 scripts/build-app.sh --version 0.1.0 --build-number 12
 scripts/build-app.sh --sign-identity "Developer ID Application: Your Name (TEAMID)"
 ```
 
-当前脚本已经能完成本地分发所需的 `.app` 打包；如果要正式对外分发，下一步仍建议补充 Developer ID 签名与 notarization 流程。
+当前默认使用 ad-hoc 签名，适合本机自用。若要正式对外分发，后续仍需要补充 Developer ID 签名与 notarization 流程。
+
+完整打包、安装和验证步骤见 `docs/packaging.md`。
 
 如需启用在线翻译 provider，可在运行前注入以下环境变量：
 

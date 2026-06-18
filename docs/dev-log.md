@@ -22,6 +22,38 @@ Notes:
 
 ## Entries
 
+## 2026-05-12
+
+Author: Codex
+
+Summary:
+- 将本机打包流程升级为更接近原生应用的 `.app` / zip / `/Applications` 安装链路
+- 新增可双击运行的一键打包入口，并补充初版应用图标
+
+Changes:
+- 增强 `scripts/build-app.sh`，支持应用图标、版本/版权字段、中文屏幕录制权限文案、清理旧产物和更清晰的输出路径
+- 新增 `scripts/package-local.command`、`scripts/install-local.sh`、`Makefile` 和 `scripts/generate-app-icon.swift`
+- 生成 `Resources/TextGrabber.icns`，并在打包时复制到 App Bundle
+- 新增 `docs/packaging.md`，沉淀本机打包、安装、验证和 iCloud Drive 扩展属性注意事项
+- 更新 README、架构文档、AI 上下文和待办状态
+
+Files Modified:
+- `scripts/build-app.sh`
+- `scripts/package-local.command`
+- `scripts/install-local.sh`
+- `scripts/generate-app-icon.swift`
+- `Resources/TextGrabber.icns`
+- `Makefile`
+- `README.md`
+- `docs/packaging.md`
+- `docs/architecture.md`
+- `docs/ai-context.md`
+- `docs/todo.md`
+- `docs/dev-log.md`
+
+Notes:
+- 当前仍按本机自用目标使用 ad-hoc 签名；正式对外分发仍需 Developer ID 签名与 notarization
+
 ## 2026-03-19
 
 Author: Codex

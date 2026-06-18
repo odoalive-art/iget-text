@@ -49,14 +49,15 @@
 - 手工编辑过的结果文本会按 `阅读优化 / 原始文本` 两个模式分别保留，切换模式时不会再覆盖当前草稿
 - 结果面板的文本区已按 Figma `55:469` 收敛成“分段切换 + 可编辑正文 + 独立翻译结果卡片”的结构；翻译结果会显示在单独的橙色描边卡片中，并保持独立滚动
 - 系统翻译在处理中英混排且夹带命令/路径的文本时，现已优先参考中英字符占比来判定源语言，避免整段被误判成英文后又“翻译回中文”
-- 当前已记录一个新的编辑体验问题：在 `阅读优化` 中修改文本后切到 `原始文本` 仍会看到初始 OCR 内容，双草稿模型会带来模式割裂感，后续需要重新设计编辑同步策略
+- 当前已记录一个新的编辑体验问题：在 `阅读优化` 中修改文本后切到 `原始文本` 仍会看到初始 OCR 内容，双草稿模型会带来模式割裂感；当前倾向「单一编辑源」，并计划与「功能 toolbar」重设计一并推进（详见 `docs/todo.md`）
 - `DEBUG` 构建下可从菜单栏右键打开“UI 调试面板”，用假数据快速切换结果面板状态和布局
 - 已新增正式结果页专用预览宿主 `ResultPopoverFormalPreviewHost`，并将 Canvas 常见报错沉淀为 `docs/xcode-preview-playbook.md`
 - 结果面板样式参数当前主要收在 `ResultPopoverContentView` 和 `ResultPopoverStyles` 附近，便于边看边直接微调
 - 真实结果面板已先整合一处低风险改动：不同状态下显示不同 footer 操作，避免权限 / 错误态底部仍出现无关按钮
 - 已修复一组 Swift 6 并发隔离兼容问题：`@MainActor` 类型不再通过默认参数直接实例化同属主线程隔离的依赖，避免 `swift build` 在 `TextGrabberKit` 编译阶段异常卡住
 - 当前已重新验证 `swift build`、`swift build --target TextGrabberKit` 和 `swift test`
-- 已提供 `scripts/build-app.sh`，可从 Swift Package 直接产出 `TextGrabber.app` 并自动嵌入 Swift 运行库
+- 已提供本机一键打包链路：`scripts/package-local.command` 可双击生成 `.app` 和 zip，`scripts/install-local.sh` 可安装到 `/Applications`
+- `scripts/build-app.sh` 已支持应用图标、版本/版权信息、中文屏幕录制权限文案、可选清理旧产物和 ad-hoc 签名
 - 已为 `AppSettings` 补充快捷键默认值、持久化与旧配置迁移测试
 - 已为 `KeyboardShortcut` 补充按键事件解析与纯修饰键判定测试
 - 已补齐一套可用于后续 AI 协作和跨项目复用的文档体系
@@ -85,7 +86,7 @@
    当前已记录翻译下载体验、焦点管理、OCR 稳定性和窗口行为等问题，适合按影响面做一轮分级和排期。
 
 6. 完善交付能力  
-   当前已补齐基础 `.app` 打包链路，下一步更适合继续完善图标、正式签名、公证和安装体验。
+   当前已补齐本机一键 `.app` 打包和安装链路，下一步更适合继续完善正式签名、公证和公开分发体验。
 
 7. 沉淀跨项目协作资产  
    当前仓库已经包含一套可复用的协作文档模板，后续可以继续按使用反馈迭代。
@@ -103,6 +104,7 @@
 7. 梳理最新记录的 bug / 优化 / 想法，确定优先处理的真实用户反馈
 8. 评估登录启动和分发方案
 9. 补充 Developer ID 签名 / notarization 流程，完成正式分发准备
+10. 推进结果面板「功能 toolbar」重设计（统一排版切换 / 翻译 / 拷贝 / 搜索 + 新增选词大爆炸，连带收敛双草稿模型）；已定决策与未决分叉见 `docs/todo.md`
 
 ## Key Files
 
@@ -110,7 +112,16 @@
   定义 `TextGrabberKit` 与 `TextGrabber` 两个主要产物。
 
 - `scripts/build-app.sh`  
-  将 `TextGrabber` 可执行产物封装成 `.app`，补齐 `Info.plist`、Swift 运行库和签名。
+  将 `TextGrabber` 可执行产物封装成 `.app`，补齐 `Info.plist`、应用图标、Swift 运行库和签名。
+
+- `scripts/package-local.command`  
+  Finder 双击入口，用于清理旧产物并一键生成本机 `.app` 与 zip。
+
+- `scripts/install-local.sh`  
+  将打包产物安装到 `/Applications/TextGrabber.app`，可选安装后启动。
+
+- `docs/packaging.md`  
+  本机打包、安装、验证和 iCloud Drive 扩展属性注意事项的操作指南。
 
 - `Sources/TextGrabberApp/AppDelegate.swift`  
   菜单栏应用入口，负责初始化 `AppCoordinator`。
