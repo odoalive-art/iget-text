@@ -27,6 +27,22 @@ struct SettingsView: View {
                 }
                 .disabled(settings.activationMode != .keyboardShortcut)
 
+                if settings.activationMode == .doubleModifierTap {
+                    Picker("双击按键", selection: $settings.doubleTapModifier) {
+                        ForEach(DoubleTapModifier.allCases, id: \.self) { modifier in
+                            Text(modifier.displayName).tag(modifier)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("快速连按两次所选修饰键即可触发截图识别。连按需要在较短时间内完成，并且不夹带其他修饰键。使用该模式需要额外开启“辅助功能”权限。")
+                            .foregroundStyle(.secondary)
+                        Button("打开辅助功能设置") {
+                            openAccessibilityPreferences()
+                        }
+                    }
+                }
+
                 if settings.activationMode == .functionKey {
                     Text("按住 Fn 键进入框选，松开 Fn 键退出截图。")
                         .foregroundStyle(.secondary)

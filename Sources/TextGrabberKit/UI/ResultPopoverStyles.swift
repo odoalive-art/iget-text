@@ -7,23 +7,28 @@ enum ResultPopoverLayout {
     static let compactHeight: CGFloat = 360
     static let cornerRadius: CGFloat = 24
     static let contentCardCornerRadius: CGFloat = 12
-    static let headerHeight: CGFloat = 49
-    static let horizontalInset: CGFloat = 10
+    static let headerHeight: CGFloat = 48
+    static let horizontalInset: CGFloat = 14
+    static let headerTrailingInset: CGFloat = 6
     static let previewCornerRadius: CGFloat = 12
     static let contentCardHeight: CGFloat = 200
-    static let topContentPadding: CGFloat = 10
-    static let bottomContentPadding: CGFloat = 10
+    static let topContentPadding: CGFloat = 0
+    static let bottomContentPadding: CGFloat = 12
     static let sectionSpacing: CGFloat = 10
     static let footerHeight: CGFloat = 32
-    static let previewVerticalPadding: CGFloat = 36
-    static let previewWidthRatio: CGFloat = 0.8
+    static let previewVerticalPadding: CGFloat = 0
+    static let previewWidthRatio: CGFloat = 1.0
+    static let previewMaxHeight: CGFloat = 180
     static let previewPlaceholderHeight: CGFloat = 110
     static let contentCardTopPadding: CGFloat = 10
     static let contentCardBottomPadding: CGFloat = 10
     static let contentCardInnerHorizontalPadding: CGFloat = 10
     static let contentCardInnerSpacing: CGFloat = 10
     static let outputModeHeight: CGFloat = 28
-    static let resultLineHeight: CGFloat = 16
+    static let resultTextFontSize: CGFloat = 14
+    static let translationTextFontSize: CGFloat = 12
+    static let resultLineHeight: CGFloat = 19
+    static let translationLineHeight: CGFloat = 16
     static let minimumTextLines: CGFloat = 8
     static let maximumTextLines: CGFloat = 24
     static let minimumTranslationLines: CGFloat = 3
@@ -62,19 +67,38 @@ enum ResultPopoverLayout {
         return round((previewWidth * image.size.height) / image.size.width)
     }
 
+    /// 预览视口高度：按自然宽高比高度，但封顶到 `previewMaxHeight`；
+    /// 超出封顶的长截图会在视口内部纵向滚动，用于逐段比对识别准确性。
+    static func previewViewportHeight(for image: NSImage?) -> CGFloat {
+        guard let image, image.size.width > 0, image.size.height > 0 else {
+            return previewPlaceholderHeight
+        }
+
+        return min(previewMaxHeight, previewHeight(for: image))
+    }
+
+    static func previewIsScrollable(for image: NSImage?) -> Bool {
+        guard let image, image.size.width > 0, image.size.height > 0 else {
+            return false
+        }
+
+        return previewHeight(for: image) > previewMaxHeight + 0.5
+    }
+
     static func previewSectionHeight(for image: NSImage?) -> CGFloat {
-        previewHeight(for: image) + previewVerticalPadding
+        previewViewportHeight(for: image) + previewVerticalPadding
     }
 
     static func measuredLineCount(for text: String, width: CGFloat = textContentWidth) -> CGFloat {
-        let measuredHeight = measuredTextHeight(for: text, width: width)
+        let measuredHeight = measuredTextHeight(for: text, width: width, fontSize: resultTextFontSize)
         return max(minimumTextLines, ceil(measuredHeight / resultLineHeight))
     }
 
     static func measuredTextHeight(
         for text: String,
         width: CGFloat,
-        paragraphSpacing: CGFloat = 0
+        paragraphSpacing: CGFloat = 0,
+        fontSize: CGFloat = translationTextFontSize
     ) -> CGFloat {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -86,7 +110,7 @@ enum ResultPopoverLayout {
         paragraphStyle.paragraphSpacing = paragraphSpacing
 
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 12, weight: .regular),
+            .font: NSFont.systemFont(ofSize: fontSize, weight: .regular),
             .paragraphStyle: paragraphStyle
         ]
 
@@ -117,10 +141,11 @@ enum ResultPopoverLayout {
             measuredHeight = measuredTextHeight(
                 for: normalizedParagraphText(text),
                 width: textContentWidth,
-                paragraphSpacing: readingOptimizedParagraphSpacing
+                paragraphSpacing: readingOptimizedParagraphSpacing,
+                fontSize: resultTextFontSize
             )
         case .sourceLayout:
-            measuredHeight = measuredTextHeight(for: text, width: textContentWidth)
+            measuredHeight = measuredTextHeight(for: text, width: textContentWidth, fontSize: resultTextFontSize)
         }
 
         let minimumHeight = minimumTextLines * resultLineHeight
@@ -135,10 +160,11 @@ enum ResultPopoverLayout {
             measuredHeight = measuredTextHeight(
                 for: normalizedParagraphText(text),
                 width: textContentWidth,
-                paragraphSpacing: readingOptimizedParagraphSpacing
+                paragraphSpacing: readingOptimizedParagraphSpacing,
+                fontSize: resultTextFontSize
             )
         case .sourceLayout:
-            measuredHeight = measuredTextHeight(for: text, width: textContentWidth)
+            measuredHeight = measuredTextHeight(for: text, width: textContentWidth, fontSize: resultTextFontSize)
         }
 
         let minimumHeight = minimumTextLines * resultLineHeight
@@ -149,8 +175,6 @@ enum ResultPopoverLayout {
     static func resultPrimaryCardHeight(for text: String, outputMode: OCRTextOutputMode = .readingOptimized) -> CGFloat {
         let textHeight = visibleResultTextHeight(for: text, outputMode: outputMode)
         return contentCardTopPadding +
-            outputModeHeight +
-            contentCardInnerSpacing +
             textHeight +
             contentCardBottomPadding
     }
@@ -165,8 +189,8 @@ enum ResultPopoverLayout {
             width: translationTextWidth,
             paragraphSpacing: translationParagraphSpacing
         )
-        let minimumHeight = minimumTranslationLines * resultLineHeight
-        let maximumHeight = maximumTranslationLines * resultLineHeight
+        let minimumHeight = minimumTranslationLines * translationLineHeight
+        let maximumHeight = maximumTranslationLines * translationLineHeight
         let textHeight = min(maximumHeight, max(minimumHeight, measuredHeight))
 
         return textHeight

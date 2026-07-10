@@ -14,6 +14,10 @@ final class HotkeyController {
     private var modifierShortcut: KeyboardShortcut?
     private var activationMonitorMode: ActivationMonitorMode?
     private var isFlagsBasedActivationActive = false
+    private var doubleTapTargetFlag: NSEvent.ModifierFlags = []
+    private var doubleTapModifierWasDown = false
+    private var doubleTapLastPressUptime: TimeInterval = 0
+    private let doubleTapWindow: TimeInterval = 0.4
     private let hotKeyID = EventHotKeyID(signature: FourCharCode("TGHB"), id: 1)
 
     init() {
@@ -26,11 +30,21 @@ final class HotkeyController {
         return currentFlags.contains(NSEvent.ModifierFlags.function)
     }
 
-    func updateActivation(mode: CaptureActivationMode, shortcut: KeyboardShortcut) -> Bool {
+    func updateActivation(
+        mode: CaptureActivationMode,
+        shortcut: KeyboardShortcut,
+        doubleTapModifier: DoubleTapModifier
+    ) -> Bool {
         clearShortcutRegistration()
 
         if mode == .functionKey {
             installFlagsMonitor(for: .functionKey)
+            return true
+        }
+
+        if mode == .doubleModifierTap {
+            doubleTapTargetFlag = doubleTapModifier.modifierFlag
+            installFlagsMonitor(for: .doubleModifierTap)
             return true
         }
 
@@ -75,6 +89,9 @@ final class HotkeyController {
         modifierShortcut = nil
         activationMonitorMode = nil
         isFlagsBasedActivationActive = false
+        doubleTapTargetFlag = []
+        doubleTapModifierWasDown = false
+        doubleTapLastPressUptime = 0
     }
 
     private func installHandlerIfNeeded() {
@@ -142,6 +159,9 @@ final class HotkeyController {
             matchesShortcut = activeFlags == targetFlags
         case .functionKey:
             matchesShortcut = flags.contains(.function)
+        case .doubleModifierTap:
+            handleDoubleTap(flags)
+            return
         case .none:
             return
         }
@@ -152,6 +172,34 @@ final class HotkeyController {
         } else if !matchesShortcut && isFlagsBasedActivationActive {
             isFlagsBasedActivationActive = false
             onRelease?()
+        }
+    }
+
+    private func handleDoubleTap(_ flags: NSEvent.ModifierFlags) {
+        guard !doubleTapTargetFlag.isEmpty else { return }
+
+        let isDown = flags.contains(doubleTapTargetFlag)
+
+        if isDown, !doubleTapModifierWasDown {
+            // 按下沿：从松开到按下。只有单独按下目标修饰键（不夹带其他修饰键）才算有效的一次“点按”。
+            doubleTapModifierWasDown = true
+
+            let isPureTap = flags.intersection(.shortcutRelevantModifiers) == doubleTapTargetFlag
+            guard isPureTap else {
+                doubleTapLastPressUptime = 0
+                return
+            }
+
+            let now = ProcessInfo.processInfo.systemUptime
+            if now - doubleTapLastPressUptime <= doubleTapWindow {
+                doubleTapLastPressUptime = 0
+                onPress?()
+            } else {
+                doubleTapLastPressUptime = now
+            }
+        } else if !isDown, doubleTapModifierWasDown {
+            // 松开沿：从按下到松开。
+            doubleTapModifierWasDown = false
         }
     }
 
@@ -177,6 +225,7 @@ final class HotkeyController {
 private enum ActivationMonitorMode {
     case modifierShortcut
     case functionKey
+    case doubleModifierTap
 }
 
 private let accessibilityPromptOptionKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String

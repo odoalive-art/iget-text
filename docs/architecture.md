@@ -9,6 +9,9 @@
 ├── PROJECT_RULES.md
 ├── AI_COMMANDS.md
 ├── README.md
+├── .codex
+│   └── environments
+│       └── environment.toml
 ├── templates
 │   └── collaboration-starter
 │       ├── AGENTS.md
@@ -25,14 +28,18 @@
 ├── docs
 │   ├── ai-context.md
 │   ├── architecture.md
-│   ├── collaboration-template.md
 │   ├── dev-log.md
 │   ├── packaging.md
 │   ├── git-workflow.md
 │   ├── regression-cases.md
+│   ├── xcode-preview-playbook.md
 │   └── todo.md
 ├── scripts
-│   └── build-app.sh
+│   ├── build-app.sh
+│   ├── codex-run.sh
+│   ├── generate-app-icon.swift
+│   ├── install-local.sh
+│   └── package-local.command
 ├── Sources
 │   ├── TextGrabberApp
 │   │   ├── AppDelegate.swift
@@ -52,6 +59,8 @@
 │   │   └── UI
 │   │       ├── ResultPopoverController.swift
 │   │       ├── ResultPopoverContentView.swift
+│   │       ├── ResultPopoverDebugWindowController.swift
+│   │       ├── ResultPopoverPreviewHost.swift
 │   │       ├── ResultPopoverStyles.swift
 │   │       ├── ResultPopoverView.swift
 │   │       ├── SettingsView.swift
@@ -193,6 +202,8 @@
 
 本机打包以 `scripts/build-app.sh` 为底层入口，并提供更短的一键入口：
 
+- `scripts/codex-run.sh`：Codex 预览入口，构建 debug 版菜单栏 `.app` 到本机临时目录并启动，避免 iCloud Drive 扩展属性影响本地预览
+- `.codex/environments/environment.toml`：将 Codex app 的 `Run` action 指向 `./scripts/codex-run.sh`
 - `scripts/package-local.command`：可在 Finder 双击运行，清理旧产物后生成 `.app` 和 zip，并打开 `dist/`
 - `scripts/install-local.sh`：将 `dist/TextGrabber.app` 安装到 `/Applications/TextGrabber.app`
 - `Makefile`：提供 `make app`、`make package`、`make install`、`make icon` 等短命令

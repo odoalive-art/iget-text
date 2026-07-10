@@ -20,25 +20,51 @@ final class CaptureTriggerController {
             self?.onTrigger?()
         }
 
-        if !hotkeyController.updateActivation(mode: settings.activationMode, shortcut: settings.hotkey) {
+        if !applyActivation(
+            mode: settings.activationMode,
+            shortcut: settings.hotkey,
+            doubleTapModifier: settings.doubleTapModifier
+        ) {
             settings.resetHotkey()
-            _ = hotkeyController.updateActivation(mode: settings.activationMode, shortcut: settings.hotkey)
+            _ = applyActivation(
+                mode: settings.activationMode,
+                shortcut: settings.hotkey,
+                doubleTapModifier: settings.doubleTapModifier
+            )
         }
 
         settings.$hotkey
-            .combineLatest(settings.$activationMode)
+            .combineLatest(settings.$activationMode, settings.$doubleTapModifier)
             .dropFirst()
-            .sink { [weak self] shortcut, activationMode in
+            .sink { [weak self] shortcut, activationMode, doubleTapModifier in
                 guard let self else { return }
-                if !self.hotkeyController.updateActivation(mode: activationMode, shortcut: shortcut) {
+                if !self.applyActivation(
+                    mode: activationMode,
+                    shortcut: shortcut,
+                    doubleTapModifier: doubleTapModifier
+                ) {
                     self.settings.resetHotkey()
-                    _ = self.hotkeyController.updateActivation(
+                    _ = self.applyActivation(
                         mode: self.settings.activationMode,
-                        shortcut: self.settings.hotkey
+                        shortcut: self.settings.hotkey,
+                        doubleTapModifier: self.settings.doubleTapModifier
                     )
                 }
             }
             .store(in: &cancellables)
+    }
+
+    @discardableResult
+    private func applyActivation(
+        mode: CaptureActivationMode,
+        shortcut: KeyboardShortcut,
+        doubleTapModifier: DoubleTapModifier
+    ) -> Bool {
+        hotkeyController.updateActivation(
+            mode: mode,
+            shortcut: shortcut,
+            doubleTapModifier: doubleTapModifier
+        )
     }
 
     func beginSelectionMonitoring(

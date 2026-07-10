@@ -21,15 +21,16 @@
 - 识别结果通过自定义浮动面板展示
 - 支持复制文本、重新识别、打开设置
 - 支持 `Fn` 键作为截图激活模式
+- 支持「双击修饰键」激活模式（在设置里选 `⌘/⌥/⌃/⇧`，短时间内连按两次触发）
 - 支持识别结果窗口按菜单栏或鼠标位置显示
 - 纯修饰键和 `Fn` 激活模式下，松开按键会退出截图
-- 结果面板当前保持原生风格卡片布局，并支持预览区与文本区自适应高度
+- 结果面板视觉已全面系统化：去掉橙色品牌、让系统玻璃透出、改用语义色/系统强调色与原生控件，并支持预览区与文本区自适应高度
 
 ## Current Features
 
 - 默认快捷键为 `Control + Option`
 - 支持纯修饰键快捷键，也支持带按键组合
-- 设置窗口可切换“组合键”与 `Fn` 两种激活模式
+- 设置窗口可切换“组合键”“双击修饰键”与 `Fn` 三种激活模式；双击修饰键需在 0.4s 内连按且不夹带其他修饰键，默认 `⌘`
 - 当缺少屏幕录制权限时，显示权限提示并可跳转系统设置
 - 识别中、识别结果、权限错误、一般错误均有独立 UI 状态
 - 结果面板内可同时查看截图预览与识别文本
@@ -47,17 +48,18 @@
 - 识别完成后会自动将焦点定位到结果文本区域末尾，并显示主题橙色输入光标，方便直接键盘全选 / 复制 / 编辑
 - 结果面板支持头部 `Pin` 按钮；固定后窗口不会因失焦自动关闭，方便跨应用对照内容
 - 手工编辑过的结果文本会按 `阅读优化 / 原始文本` 两个模式分别保留，切换模式时不会再覆盖当前草稿
-- 结果面板的文本区已按 Figma `55:469` 收敛成“分段切换 + 可编辑正文 + 独立翻译结果卡片”的结构；翻译结果会显示在单独的橙色描边卡片中，并保持独立滚动
+- 结果面板的文本区已收敛成“分段切换 + 可编辑正文 + 独立翻译结果卡片”的结构；分段切换用原生 `Picker(.segmented)`，翻译结果显示在系统强调色描边卡片中并保持独立滚动
 - 系统翻译在处理中英混排且夹带命令/路径的文本时，现已优先参考中英字符占比来判定源语言，避免整段被误判成英文后又“翻译回中文”
 - 当前已记录一个新的编辑体验问题：在 `阅读优化` 中修改文本后切到 `原始文本` 仍会看到初始 OCR 内容，双草稿模型会带来模式割裂感；当前倾向「单一编辑源」，并计划与「功能 toolbar」重设计一并推进（详见 `docs/todo.md`）
 - `DEBUG` 构建下可从菜单栏右键打开“UI 调试面板”，用假数据快速切换结果面板状态和布局
-- 已新增正式结果页专用预览宿主 `ResultPopoverFormalPreviewHost`，并将 Canvas 常见报错沉淀为 `docs/xcode-preview-playbook.md`
+- 已新增正式结果页专用预览宿主 `ResultPopoverPreviewHost`，并将 Canvas 常见报错沉淀为 `docs/xcode-preview-playbook.md`
 - 结果面板样式参数当前主要收在 `ResultPopoverContentView` 和 `ResultPopoverStyles` 附近，便于边看边直接微调
 - 真实结果面板已先整合一处低风险改动：不同状态下显示不同 footer 操作，避免权限 / 错误态底部仍出现无关按钮
 - 已修复一组 Swift 6 并发隔离兼容问题：`@MainActor` 类型不再通过默认参数直接实例化同属主线程隔离的依赖，避免 `swift build` 在 `TextGrabberKit` 编译阶段异常卡住
 - 当前已重新验证 `swift build`、`swift build --target TextGrabberKit` 和 `swift test`
 - 已提供本机一键打包链路：`scripts/package-local.command` 可双击生成 `.app` 和 zip，`scripts/install-local.sh` 可安装到 `/Applications`
 - `scripts/build-app.sh` 已支持应用图标、版本/版权信息、中文屏幕录制权限文案、可选清理旧产物和 ad-hoc 签名
+- 已新增 Codex app 内预览入口：`scripts/codex-run.sh` 会构建 debug 版真实菜单栏 `.app` 到本机临时目录并启动，`.codex/environments/environment.toml` 已将 `Run` action 指向该脚本
 - 已为 `AppSettings` 补充快捷键默认值、持久化与旧配置迁移测试
 - 已为 `KeyboardShortcut` 补充按键事件解析与纯修饰键判定测试
 - 已补齐一套可用于后续 AI 协作和跨项目复用的文档体系
@@ -120,6 +122,12 @@
 - `scripts/install-local.sh`  
   将打包产物安装到 `/Applications/TextGrabber.app`，可选安装后启动。
 
+- `scripts/codex-run.sh`  
+  Codex 预览入口，负责停止旧进程、调用 `scripts/build-app.sh --configuration debug` 构建临时 `.app`，再启动真实菜单栏应用；支持 `--verify`、`--logs`、`--telemetry` 和 `--debug`。
+
+- `.codex/environments/environment.toml`  
+  Codex app Run action 配置，指向 `./scripts/codex-run.sh`。
+
 - `docs/packaging.md`  
   本机打包、安装、验证和 iCloud Drive 扩展属性注意事项的操作指南。
 
@@ -162,7 +170,7 @@
 - `Sources/TextGrabberKit/UI/ResultPopoverDebugWindowController.swift`  
   `DEBUG` 构建下的 UI 调试面板入口，用假数据预览结果面板状态。
 
-- `Sources/TextGrabberKit/UI/ResultPopoverFormalPreviewHost.swift`  
+- `Sources/TextGrabberKit/UI/ResultPopoverPreviewHost.swift`  
   正式结果页专用预览宿主文件，建议优先在该文件中打开 Canvas，降低 scheme 漂移引发的报错概率。
 
 - `Sources/TextGrabberKit/UI/ResultPopoverStyles.swift`  

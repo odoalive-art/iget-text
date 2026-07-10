@@ -57,6 +57,7 @@ final class AppSettingsTests: XCTestCase {
         let settings = AppSettings(defaults: defaults)
 
         XCTAssertEqual(settings.activationMode, .keyboardShortcut)
+        XCTAssertEqual(settings.doubleTapModifier, .command)
         XCTAssertEqual(settings.resultPanelPlacement, .statusItem)
         XCTAssertEqual(settings.translationProvider, .automatic)
     }
@@ -72,6 +73,28 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(defaults.string(forKey: "app.activationMode"), CaptureActivationMode.functionKey.rawValue)
         XCTAssertEqual(defaults.string(forKey: "app.resultPanelPlacement"), ResultPanelPlacementMode.followMouse.rawValue)
         XCTAssertEqual(defaults.string(forKey: "app.translationProvider"), TranslationProviderMode.systemOnly.rawValue)
+    }
+
+    func testPersistsAndRestoresDoubleTapModifier() {
+        let defaults = makeDefaults()
+        let settings = AppSettings(defaults: defaults)
+
+        settings.activationMode = .doubleModifierTap
+        settings.doubleTapModifier = .shift
+
+        XCTAssertEqual(defaults.string(forKey: "app.activationMode"), CaptureActivationMode.doubleModifierTap.rawValue)
+        XCTAssertEqual(defaults.string(forKey: "app.doubleTapModifier"), DoubleTapModifier.shift.rawValue)
+
+        let restored = AppSettings(defaults: defaults)
+        XCTAssertEqual(restored.activationMode, .doubleModifierTap)
+        XCTAssertEqual(restored.doubleTapModifier, .shift)
+    }
+
+    func testDoubleTapModifierMapsToModifierFlag() {
+        XCTAssertEqual(DoubleTapModifier.command.modifierFlag, .command)
+        XCTAssertEqual(DoubleTapModifier.option.modifierFlag, .option)
+        XCTAssertEqual(DoubleTapModifier.control.modifierFlag, .control)
+        XCTAssertEqual(DoubleTapModifier.shift.modifierFlag, .shift)
     }
 
     private func makeDefaults(file: StaticString = #filePath, line: UInt = #line) -> UserDefaults {

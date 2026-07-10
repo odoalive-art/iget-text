@@ -5,14 +5,50 @@ import Foundation
 
 enum CaptureActivationMode: String, Codable, CaseIterable {
     case keyboardShortcut
+    case doubleModifierTap
     case functionKey
 
     var displayName: String {
         switch self {
         case .keyboardShortcut:
             "组合键"
+        case .doubleModifierTap:
+            "双击修饰键"
         case .functionKey:
             "Fn 键"
+        }
+    }
+}
+
+enum DoubleTapModifier: String, Codable, CaseIterable {
+    case command
+    case option
+    case control
+    case shift
+
+    var displayName: String {
+        switch self {
+        case .command:
+            "⌘ Command"
+        case .option:
+            "⌥ Option"
+        case .control:
+            "⌃ Control"
+        case .shift:
+            "⇧ Shift"
+        }
+    }
+
+    var modifierFlag: NSEvent.ModifierFlags {
+        switch self {
+        case .command:
+            .command
+        case .option:
+            .option
+        case .control:
+            .control
+        case .shift:
+            .shift
         }
     }
 }
@@ -152,6 +188,7 @@ struct KeyboardShortcut: Codable, Equatable {
 public final class AppSettings: ObservableObject {
     @Published var hotkey: KeyboardShortcut
     @Published var activationMode: CaptureActivationMode
+    @Published var doubleTapModifier: DoubleTapModifier
     @Published var resultPanelPlacement: ResultPanelPlacementMode
     @Published var translationProvider: TranslationProviderMode
     @Published var launchAtLogin = false
@@ -161,12 +198,14 @@ public final class AppSettings: ObservableObject {
     private let defaults: UserDefaults
     private let hotkeyKey = "app.hotkey"
     private let activationModeKey = "app.activationMode"
+    private let doubleTapModifierKey = "app.doubleTapModifier"
     private let resultPanelPlacementKey = "app.resultPanelPlacement"
     private let translationProviderKey = "app.translationProvider"
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         activationMode = CaptureActivationMode(rawValue: defaults.string(forKey: activationModeKey) ?? "") ?? .keyboardShortcut
+        doubleTapModifier = DoubleTapModifier(rawValue: defaults.string(forKey: doubleTapModifierKey) ?? "") ?? .command
         resultPanelPlacement = ResultPanelPlacementMode(rawValue: defaults.string(forKey: resultPanelPlacementKey) ?? "") ?? .statusItem
         translationProvider = TranslationProviderMode(rawValue: defaults.string(forKey: translationProviderKey) ?? "") ?? .automatic
 
@@ -193,6 +232,13 @@ public final class AppSettings: ObservableObject {
             .dropFirst()
             .sink { [weak self] mode in
                 self?.defaults.set(mode.rawValue, forKey: self?.activationModeKey ?? "")
+            }
+            .store(in: &cancellables)
+
+        $doubleTapModifier
+            .dropFirst()
+            .sink { [weak self] modifier in
+                self?.defaults.set(modifier.rawValue, forKey: self?.doubleTapModifierKey ?? "")
             }
             .store(in: &cancellables)
 

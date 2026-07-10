@@ -33,9 +33,7 @@ struct ResultPopoverContentView: View {
     @State private var translationRequestToken = 0
     @State private var prewarmPlan: TranslationPlan?
     @State private var translationPlan: TranslationPlan?
-    @State private var hoveredHeaderButtonSymbol: String?
-    @State private var isHoveringRetryButton = false
-    @State private var isHoveringTranslateButton = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         contentSurface
@@ -77,14 +75,10 @@ struct ResultPopoverContentView: View {
                 .padding(.bottom, ResultPopoverLayout.bottomContentPadding)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(Color.white.opacity(0.82))
         }
         .overlay(
             RoundedRectangle(cornerRadius: ResultPopoverLayout.cornerRadius, style: .continuous)
-                .stroke(
-                    Color.white.opacity(0.65),
-                    lineWidth: 1
-                )
+                .strokeBorder(.separator.opacity(0.5), lineWidth: 0.5)
         )
         .background(prewarmTranslationTaskBridge)
         .background(translationTaskBridge)
@@ -92,133 +86,49 @@ struct ResultPopoverContentView: View {
 
     private var header: some View {
         HStack(spacing: 0) {
-            HStack(spacing: 4) {
-                Image(systemName: "sparkles.2")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color(red: 1.0, green: 0.345, blue: 0.231))
-
-                Text("iGET！")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(red: 1.0, green: 0.345, blue: 0.231))
-            }
+            Text("截图识别")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
 
             Spacer()
 
-            HStack(spacing: 5) {
-                compactIconButton(
+            HStack(spacing: 2) {
+                LightIconButton(
                     symbol: isPinned ? "pin.fill" : "pin",
                     accessibilityLabel: isPinned ? "取消固定窗口" : "固定窗口",
                     isSelected: isPinned,
                     action: onTogglePin
                 )
-                compactIconButton(symbol: "gearshape", accessibilityLabel: "设置", action: onShowSettings)
+                LightIconButton(symbol: "gearshape", accessibilityLabel: "设置", action: onShowSettings)
             }
         }
-        .padding(.horizontal, ResultPopoverLayout.horizontalInset)
+        .padding(.leading, ResultPopoverLayout.horizontalInset)
+        .padding(.trailing, ResultPopoverLayout.headerTrailingInset)
         .padding(.top, 0)
         .frame(height: ResultPopoverLayout.headerHeight)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.black.opacity(0.1))
-                .frame(height: 0.5)
-        }
-    }
-
-    private func compactIconButton(
-        symbol: String,
-        accessibilityLabel: String,
-        isSelected: Bool = false,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(
-                    isSelected
-                        ? Color(red: 1.0, green: 0.345, blue: 0.231)
-                        : Color.black.opacity(0.5)
-                )
-                .frame(
-                    width: 32,
-                    height: 32
-                )
-                .background {
-                    if hoveredHeaderButtonSymbol == symbol || isSelected {
-                        Circle()
-                            .fill(
-                                isSelected
-                                    ? Color(red: 1.0, green: 0.345, blue: 0.231).opacity(0.12)
-                                    : Color.black.opacity(0.05)
-                            )
-                    }
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(accessibilityLabel))
-        .onHover { isHovering in
-            hoveredHeaderButtonSymbol = isHovering ? symbol : nil
-        }
     }
 
     private var previewPane: some View {
         ZStack {
             if let image = capturedPreviewImage {
-                RoundedRectangle(cornerRadius: ResultPopoverLayout.previewCornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(0.88))
-                    .shadow(
-                        color: Color.black.opacity(0.08),
-                        radius: 18,
-                        y: 12
-                    )
-                    .overlay {
-                        Image(nsImage: image)
-                            .resizable()
-                            .interpolation(.high)
-                            .aspectRatio(contentMode: .fill)
-                            .frame(
-                                width: ResultPopoverLayout.previewWidth,
-                                height: ResultPopoverLayout.previewHeight(for: capturedPreviewImage)
-                            )
-                            .clipShape(
-                                RoundedRectangle(
-                                    cornerRadius: ResultPopoverLayout.previewCornerRadius,
-                                    style: .continuous
-                                )
-                            )
-                    }
-                    .frame(
-                        width: ResultPopoverLayout.previewWidth,
-                        height: ResultPopoverLayout.previewHeight(for: capturedPreviewImage)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: ResultPopoverLayout.previewCornerRadius, style: .continuous)
-                            .stroke(
-                                Color.white.opacity(0.9),
-                                lineWidth: 1
-                            )
-                    )
+                capturedPreview(image)
             } else {
                 RoundedRectangle(cornerRadius: ResultPopoverLayout.previewCornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(0.72))
+                    .fill(.quaternary)
                     .frame(
                         width: ResultPopoverLayout.previewWidth,
-                        height: ResultPopoverLayout.previewHeight(for: capturedPreviewImage)
+                        height: ResultPopoverLayout.previewViewportHeight(for: capturedPreviewImage)
                     )
                     .overlay {
                         VStack(spacing: 6) {
                             Image(systemName: displayState == .recognizing ? "viewfinder.circle" : "photo")
                                 .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(Color.black.opacity(0.5))
+                                .foregroundStyle(.secondary)
                             Text(displayState == .recognizing ? "截图处理中…" : "暂无截图")
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(Color.black.opacity(0.5))
+                                .foregroundStyle(.secondary)
                         }
                     }
-                    .shadow(
-                        color: Color.black.opacity(0.08),
-                        radius: 18,
-                        y: 12
-                    )
             }
         }
         .frame(
@@ -227,6 +137,42 @@ struct ResultPopoverContentView: View {
             maxHeight: ResultPopoverLayout.previewSectionHeight(for: capturedPreviewImage),
             alignment: .center
         )
+    }
+
+    @ViewBuilder
+    private func capturedPreview(_ image: NSImage) -> some View {
+        let viewportHeight = ResultPopoverLayout.previewViewportHeight(for: image)
+        let naturalHeight = ResultPopoverLayout.previewHeight(for: image)
+
+        Group {
+            if ResultPopoverLayout.previewIsScrollable(for: image) {
+                ScrollView(.vertical, showsIndicators: true) {
+                    previewImageContent(image, height: naturalHeight)
+                }
+                .frame(width: ResultPopoverLayout.previewWidth, height: viewportHeight)
+            } else {
+                previewImageContent(image, height: naturalHeight)
+            }
+        }
+        .clipShape(
+            RoundedRectangle(cornerRadius: ResultPopoverLayout.previewCornerRadius, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: ResultPopoverLayout.previewCornerRadius, style: .continuous)
+                .strokeBorder(previewBorderColor, lineWidth: 0.5)
+        )
+    }
+
+    private var previewBorderColor: Color {
+        colorScheme == .dark ? Color.white.opacity(0.2) : Color.black.opacity(0.2)
+    }
+
+    private func previewImageContent(_ image: NSImage, height: CGFloat) -> some View {
+        Image(nsImage: image)
+            .resizable()
+            .interpolation(.high)
+            .aspectRatio(contentMode: .fit)
+            .frame(width: ResultPopoverLayout.previewWidth, height: height)
     }
 
     private var contentCard: some View {
@@ -281,83 +227,28 @@ struct ResultPopoverContentView: View {
     }
 
     private var primaryResultCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            outputModeControl
-            resultTextBlock
-        }
-        .padding(.top, 10)
-        .padding(.horizontal, 10)
-        .padding(.bottom, 10)
-        .frame(
-            maxWidth: .infinity,
-            minHeight: primaryCardHeight,
-            idealHeight: primaryCardHeight,
-            maxHeight: primaryCardHeight,
-            alignment: .topLeading
-        )
-        .background(primaryResultCardBackground)
+        resultTextBlock
+            .padding(.top, 10)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 10)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: primaryCardHeight,
+                idealHeight: primaryCardHeight,
+                maxHeight: primaryCardHeight,
+                alignment: .topLeading
+            )
+            .background(primaryResultCardBackground)
     }
 
     private var primaryResultCardBackground: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color.black.opacity(0.04),
-                        Color.black.opacity(0.02)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
+            .fill(.quaternary.opacity(0.5))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                    .strokeBorder(.separator.opacity(0.5), lineWidth: 0.5)
             )
     }
-
-    private var outputModeControl: some View {
-        HStack(spacing: 0) {
-            outputModeButton(.readingOptimized)
-            outputModeButton(.sourceLayout)
-        }
-        .padding(.horizontal, 2)
-        .padding(.vertical, 2)
-        .background(
-            Color.black.opacity(0.05),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-        )
-    }
-
-    private func outputModeButton(_ mode: OCRTextOutputMode) -> some View {
-        let isSelected = outputMode == mode
-
-        return Button {
-            outputMode = mode
-        } label: {
-            Text(mode == .sourceLayout ? "原始文本" : mode.displayName)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(
-                    isSelected
-                        ? Color(nsColor: .labelColor)
-                        : Color.black.opacity(0.5)
-                )
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background {
-                    if isSelected {
-                        RoundedRectangle(
-                            cornerRadius: 6,
-                            style: .continuous
-                        )
-                        .fill(Color.white)
-                    }
-                }
-        }
-        .buttonStyle(.plain)
-    }
-
-
 
     private var resultTextBlock: some View {
         ResultTextEditor(
@@ -422,7 +313,7 @@ struct ResultPopoverContentView: View {
             case .permission:
                 stateFooter(
                     primaryTitle: "打开设置",
-                    primarySymbol: "gearshape.fill",
+                    primarySymbol: "gearshape",
                     primaryAction: onOpenScreenRecordingPreferences,
                     secondaryTitle: "关闭",
                     secondarySymbol: "xmark",
@@ -442,59 +333,67 @@ struct ResultPopoverContentView: View {
     }
 
     private var resultFooter: some View {
-        HStack(spacing: 4) {
-            iconFooterButton(symbol: "arrow.triangle.2.circlepath", showsBackground: isHoveringRetryButton, action: onRetry)
-                .onHover { isHovering in
-                    isHoveringRetryButton = isHovering
-                }
+        HStack(spacing: 0) {
+            glassButtonGroup {
+                LightIconButton(
+                    symbol: "arrow.clockwise",
+                    accessibilityLabel: "重新识别",
+                    standalone: false,
+                    action: onRetry
+                )
                 .disabled(displayState == .recognizing)
+            }
 
             Spacer(minLength: 0)
 
-            textFooterButton(
-                title: "翻译",
-                symbol: "globe",
-                style: .secondary,
-                showsBackground: isHoveringTranslateButton,
-                action: presentSystemTranslation
-            )
-            .onHover { isHovering in
-                isHoveringTranslateButton = isHovering
-            }
-            .disabled(!canTranslateCurrentText)
-
-            textFooterButton(
-                title: "拷贝文本",
-                symbol: "document.on.document",
-                style: .primary,
-                action: onCopy
-            )
-            .disabled(recognizedText.isEmpty || displayState != .result)
-        }
-    }
-
-    private func iconFooterButton(symbol: String, showsBackground: Bool = true, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 12, weight: .regular, design: .rounded))
-                .foregroundStyle(Color.black.opacity(0.5))
-                .frame(
-                    width: 32,
-                    height: 32
-                )
-                .background {
-                    if showsBackground {
-                        Capsule()
-                            .fill(Color.black.opacity(0.05))
+            glassButtonGroup {
+                LightIconButton(
+                    symbol: "wand.and.stars",
+                    accessibilityLabel: outputMode == .readingOptimized ? "阅读优化（已开启，点击切换为原始版面）" : "阅读优化（已关闭，点击开启）",
+                    isSelected: outputMode == .readingOptimized,
+                    standalone: false,
+                    action: {
+                        outputMode = outputMode == .readingOptimized ? .sourceLayout : .readingOptimized
                     }
-                }
+                )
+                .disabled(displayState != .result)
+
+                LightIconButton(
+                    symbol: "translate",
+                    accessibilityLabel: "翻译",
+                    standalone: false,
+                    action: presentSystemTranslation
+                )
+                .disabled(!canTranslateCurrentText)
+
+                LightIconButton(
+                    symbol: "doc.on.doc",
+                    accessibilityLabel: "拷贝文本",
+                    bouncesOnTap: true,
+                    standalone: false,
+                    action: onCopy
+                )
+                .disabled(recognizedText.isEmpty || displayState != .result)
+            }
         }
-        .buttonStyle(.plain)
     }
 
-    private enum FooterButtonStyle {
-        case primary
-        case secondary
+    private func glassButtonGroup<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        let group = HStack(spacing: 2) {
+            content()
+        }
+        .padding(.horizontal, 5)
+        .frame(height: 34)
+
+        return Group {
+            if #available(macOS 26.0, *) {
+                group.glassEffect(.regular, in: Capsule())
+            } else {
+                group
+                    .background(.regularMaterial, in: Capsule())
+                    .overlay(Capsule().strokeBorder(.primary.opacity(0.10), lineWidth: 0.5))
+            }
+        }
     }
 
     private func stateFooter(
@@ -506,51 +405,34 @@ struct ResultPopoverContentView: View {
         secondarySymbol: String? = nil,
         secondaryAction: @escaping () -> Void = {}
     ) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 0) {
             if let secondaryTitle, let secondarySymbol {
-                textFooterButton(
-                    title: secondaryTitle,
-                    symbol: secondarySymbol,
-                    style: .secondary,
-                    action: secondaryAction
-                )
+                stateFooterButton(title: secondaryTitle, symbol: secondarySymbol, emphasized: false, action: secondaryAction)
             }
 
             Spacer(minLength: 0)
 
-            textFooterButton(
-                title: primaryTitle,
-                symbol: primarySymbol,
-                style: .primary,
-                action: primaryAction
-            )
-            .disabled(!primaryEnabled)
+            stateFooterButton(title: primaryTitle, symbol: primarySymbol, emphasized: true, action: primaryAction)
+                .disabled(!primaryEnabled)
         }
     }
 
-    private func textFooterButton(
+    private func stateFooterButton(
         title: String,
         symbol: String,
-        style: FooterButtonStyle,
-        showsBackground: Bool = true,
+        emphasized: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: symbol)
-                    .font(.system(size: 12, weight: .regular, design: .rounded))
                 Text(title)
-                    .font(.system(size: 12, weight: .regular, design: .rounded))
             }
-            .foregroundStyle(style == .primary ? Color.white : Color.black.opacity(0.5))
-            .padding(.horizontal, 12)
-            .frame(height: 32)
-            .background {
-                if showsBackground {
-                    Capsule()
-                        .fill(style == .primary ? Color.black : Color.black.opacity(0.05))
-                }
-            }
+            .font(.system(size: 12, weight: emphasized ? .medium : .regular))
+            .foregroundStyle(emphasized ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+            .padding(.horizontal, 8)
+            .frame(height: 30)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -695,11 +577,13 @@ struct ResultPopoverContentView: View {
 
     private var translationCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 0) {
+            HStack(spacing: 4) {
+                Image(systemName: "translate")
+                    .font(.system(size: 11, weight: .semibold))
                 Text("翻译结果")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color(red: 0.9647, green: 0.3137, blue: 0.1961))
             }
+            .foregroundStyle(.secondary)
 
             if let translationDisplayText = currentTranslationDisplayText {
                 ScrollView(.vertical, showsIndicators: translationNeedsScrolling) {
@@ -718,19 +602,10 @@ struct ResultPopoverContentView: View {
 
     private var translationCardBackground: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.9647, green: 0.3137, blue: 0.1961).opacity(0.04),
-                        Color(red: 0.9647, green: 0.3137, blue: 0.1961).opacity(0.0)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
+            .fill(.quaternary)
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color(red: 0.9647, green: 0.3137, blue: 0.1961).opacity(0.16), lineWidth: 1)
+                    .strokeBorder(.separator.opacity(0.5), lineWidth: 0.5)
             )
     }
 
@@ -739,7 +614,7 @@ struct ResultPopoverContentView: View {
             return Color(nsColor: .labelColor)
         }
 
-        return Color.black.opacity(0.62)
+        return Color(nsColor: .secondaryLabelColor)
     }
 
     @ViewBuilder
@@ -810,6 +685,71 @@ struct ResultPopoverContentView: View {
     }
 }
 
+private struct LightIconButton: View {
+    let symbol: String
+    let accessibilityLabel: String
+    var isSelected: Bool = false
+    var bouncesOnTap: Bool = false
+    var standalone: Bool = true
+    let action: () -> Void
+
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovering = false
+    @State private var bounceValue = 0
+
+    var body: some View {
+        Button {
+            if bouncesOnTap {
+                bounceValue += 1
+            }
+            action()
+        } label: {
+            iconImage
+                .font(.system(size: 13, weight: .medium))
+                .symbolEffect(.bounce, value: bounceValue)
+                .frame(width: 30, height: 30)
+                .background { buttonBackground }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.4)
+        .accessibilityLabel(Text(accessibilityLabel))
+        .onHover { isHovering = $0 }
+    }
+
+    @ViewBuilder
+    private var buttonBackground: some View {
+        if standalone {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(backgroundFill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(.primary.opacity(0.06), lineWidth: 0.5)
+                )
+        } else if isSelected {
+            Circle().fill(.primary.opacity(0.16))
+        } else if isHovering, isEnabled {
+            Circle().fill(.primary.opacity(0.10))
+        }
+    }
+
+    private var backgroundFill: AnyShapeStyle {
+        if isSelected {
+            return AnyShapeStyle(.primary.opacity(0.15))
+        }
+        if isHovering, isEnabled {
+            return AnyShapeStyle(.primary.opacity(0.10))
+        }
+        return AnyShapeStyle(.primary.opacity(0.05))
+    }
+
+    private var iconImage: some View {
+        Image(systemName: symbol)
+            .symbolRenderingMode(.monochrome)
+            .foregroundStyle(Color.black)
+    }
+}
+
 private struct ResultTextEditor: NSViewRepresentable {
     @Binding var text: String
     let focusRequestToken: Int
@@ -837,19 +777,14 @@ private struct ResultTextEditor: NSViewRepresentable {
         textView.drawsBackground = false
         textView.backgroundColor = .clear
         textView.textColor = .labelColor
-        textView.font = .systemFont(ofSize: 12, weight: .regular)
+        textView.font = .systemFont(ofSize: ResultPopoverLayout.resultTextFontSize, weight: .regular)
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
         textView.textContainerInset = NSSize(width: 2, height: 0)
         textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.lineFragmentPadding = 1
         textView.textContainer?.lineBreakMode = .byWordWrapping
-        textView.insertionPointColor = NSColor(
-            calibratedRed: 1.0,
-            green: 0.345,
-            blue: 0.231,
-            alpha: 1.0
-        )
+        textView.insertionPointColor = .labelColor
         applyParagraphStyle(to: textView)
         scrollView.documentView = textView
 
@@ -890,7 +825,7 @@ private struct ResultTextEditor: NSViewRepresentable {
         let attributedText = NSMutableAttributedString(string: textView.string)
         attributedText.addAttributes(
             [
-                .font: NSFont.systemFont(ofSize: 12, weight: .regular),
+                .font: NSFont.systemFont(ofSize: ResultPopoverLayout.resultTextFontSize, weight: .regular),
                 .foregroundColor: NSColor.labelColor,
                 .paragraphStyle: paragraphStyle
             ],

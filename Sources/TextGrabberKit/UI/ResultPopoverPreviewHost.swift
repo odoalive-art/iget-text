@@ -3,10 +3,10 @@ import SwiftUI
 
 #if DEBUG
 @MainActor
-private struct ResultPopoverFormalPreviewHost: View {
+private struct ResultPopoverPreviewHost: View {
     @StateObject private var resultState = RecognitionResultState()
     @State private var outputMode: OCRTextOutputMode = .readingOptimized
-    @State private var recognizedText = ResultPopoverFormalPreviewData.resultText
+    @State private var recognizedText = ResultPopoverPreviewData.resultText
     @State private var isPinned = false
 
     var body: some View {
@@ -19,7 +19,7 @@ private struct ResultPopoverFormalPreviewHost: View {
             translationProvider: .automatic,
             outputMode: $outputMode,
             recognizedText: $recognizedText,
-            capturedPreviewImage: ResultPopoverFormalPreviewData.previewImage(),
+            capturedPreviewImage: ResultPopoverPreviewData.previewImage(),
             lastErrorMessage: nil,
             onRetry: {},
             onCopy: {},
@@ -35,7 +35,7 @@ private struct ResultPopoverFormalPreviewHost: View {
                 translationText: resultState.translatedText.isEmpty ? nil : resultState.translatedText,
                 showsTranslationPane: !resultState.translatedText.isEmpty,
                 outputMode: outputMode,
-                image: ResultPopoverFormalPreviewData.previewImage(),
+                image: ResultPopoverPreviewData.previewImage(),
                 includePreview: true
             )
         )
@@ -43,18 +43,18 @@ private struct ResultPopoverFormalPreviewHost: View {
         .background(Color(nsColor: .underPageBackgroundColor))
         .onAppear {
             let result = OCRResult(
-                rawText: ResultPopoverFormalPreviewData.resultText,
-                readingOptimizedText: ResultPopoverFormalPreviewData.resultText,
+                rawText: ResultPopoverPreviewData.resultText,
+                readingOptimizedText: ResultPopoverPreviewData.resultText,
                 lines: [],
                 confidenceSummary: 0.98
             )
             resultState.showResult(result)
-            resultState.completeTranslation(ResultPopoverFormalPreviewData.translatedText)
+            resultState.completeTranslation(ResultPopoverPreviewData.translatedText)
         }
     }
 }
 
-private enum ResultPopoverFormalPreviewData {
+private enum ResultPopoverPreviewData {
     static let resultText = """
     创建新分支准备优化 UI 交互...
 
@@ -119,6 +119,6 @@ private enum ResultPopoverFormalPreviewData {
 }
 
 #Preview("正式结果页（专用）") {
-    ResultPopoverFormalPreviewHost()
+    ResultPopoverPreviewHost()
 }
 #endif

@@ -78,6 +78,7 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
     private let hostingController: NSHostingController<ResultPopoverView>
     private var cancellables = Set<AnyCancellable>()
     private var anchorState = ResultPanelAnchorState()
+    private var lastResignHideUptime: TimeInterval?
 
     init(coordinator: AppCoordinator) {
         self.coordinator = coordinator
@@ -103,9 +104,18 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
     func toggle() {
         if panel.isVisible {
             hide()
-        } else {
-            showCurrentState()
+            return
         }
+
+        // 再次点击状态栏图标时，mouseDown 会先让面板 resignKey 并自动隐藏；
+        // 若隐藏发生在极短时间内，说明就是这次点击导致的收起，不应再重新弹出。
+        if let lastResignHideUptime,
+           ProcessInfo.processInfo.systemUptime - lastResignHideUptime < 0.25 {
+            self.lastResignHideUptime = nil
+            return
+        }
+
+        showCurrentState()
     }
 
     func show(result _: OCRResult) {
@@ -343,6 +353,7 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
             return
         }
 
+        lastResignHideUptime = ProcessInfo.processInfo.systemUptime
         hide()
     }
 

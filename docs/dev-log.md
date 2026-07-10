@@ -22,6 +22,113 @@ Notes:
 
 ## Entries
 
+## 2026-07-10
+
+Author: Claude
+
+Summary:
+- 新增第三种截图激活方式「双击修饰键」
+- 将结果面板视觉全面系统化，去品牌色、让系统玻璃透出、改用原生控件与语义色
+
+Changes:
+- 在 `AppSettings` 中新增 `CaptureActivationMode.doubleModifierTap`、`DoubleTapModifier` 枚举，以及可持久化的 `doubleTapModifier` 设置（默认 `⌘ Command`）
+- 在 `HotkeyController` 中复用现有全局 `flagsChanged` 监听，新增 `.doubleModifierTap` 模式与按下/松开边沿检测：0.4s 窗口内、不夹带其他修饰键连按两次即触发
+- `CaptureTriggerController` 改为 `combineLatest` 三参数，联动 `hotkey / activationMode / doubleTapModifier`，`updateActivation` 增加 `doubleTapModifier` 入参
+- `SettingsView` 在「双击修饰键」模式下新增修饰键 Picker 与辅助功能权限说明
+- 结果面板重构：移除白色蒙层让 `LiquidGlassSurface` 透出；标题栏去掉橙色 `iGET！`，改为中性 `text.viewfinder + 文字识别`；所有硬编码 `Color.white/black.opacity` 与橙色 RGB 换成 `.tint / .secondary / .quaternary / .separator` 等语义色与系统强调色
+- 排版切换与 footer 操作经过多轮迭代，最终定型为：`阅读优化 / 原始版面` 收成 footer 里的一个开关图标（激活=优化），与 `翻译 / 拷贝` 一起放进 macOS 26 `.glassEffect(in: Capsule())` 玻璃胶囊按钮组，`重新识别` 单独成一个玻璃胶囊；所有图标统一为线性描边、纯黑、`.medium` 字重、30×30 圆形 hover/选中热区，复制点击带 `.symbolEffect(.bounce)`
+- 顶栏去掉分隔线，左侧「截图识别」弱化色标题 + 右侧 pin/设置图标；顶栏高度 48，预览图上缘直接贴住顶栏
+- 截图预览改为全宽、高度封顶 180pt，超出在预览区内部纵向滚动以便逐段比对；预览描边改为随外观切换的纯黑/纯白 0.2 内描边、去投影
+- 识别正文字号 12→14pt（`resultTextFontSize` 常量，行高 19；翻译保持 12pt，拆出 `translationLineHeight`）
+- 主色收敛为黑白灰：移除橙色品牌与蓝色系统强调色，文本光标改 `.labelColor`
+- 边距体系：`horizontalInset` 10→14、顶栏非对称内边距（左 14/右 6）
+- 修复再次点击菜单栏图标时因 `resignKey` 自动隐藏与 `toggle` 抢先导致的「闪一下又出现」，改为 0.25s 内的 resign 隐藏不再重新弹出
+- 为 `AppSettings` 补充双击修饰键持久化/恢复与 `DoubleTapModifier.modifierFlag` 映射测试
+
+Files Modified:
+- `Sources/TextGrabberKit/Models/AppSettings.swift`
+- `Sources/TextGrabberKit/Services/HotkeyController.swift`
+- `Sources/TextGrabberKit/Services/CaptureTriggerController.swift`
+- `Sources/TextGrabberKit/UI/SettingsView.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverContentView.swift`
+- `Tests/TextGrabberTests/AppSettingsTests.swift`
+- `docs/ai-context.md`
+- `docs/todo.md`
+- `docs/dev-log.md`
+
+Notes:
+- 已验证 `swift build`、`swift test`（38 通过）和 `./scripts/codex-run.sh --verify`（构建/签名/启动成功）
+- 双击修饰键与纯修饰键模式一样需要「辅助功能」权限；默认 `⌘` 便于发现，但高频使用时可在设置里换成更不易误触的修饰键
+- 视觉改版最终外观仍建议在真机菜单栏运行态下人工校对，重点看玻璃透出后的文本对比度与深浅色模式表现
+
+## 2026-06-19
+
+Author: Codex
+
+Summary:
+- 收敛项目文件命名与文档边界，移除历史辅助文档
+
+Changes:
+- 将 Codex 运行入口从 `script/build_and_run.sh` 统一移动到 `scripts/codex-run.sh`
+- 将正式结果页预览宿主从 `ResultPopoverFormalPreviewHost.swift` 重命名为 `ResultPopoverPreviewHost.swift`
+- 删除重复的协作模板说明和个人开发日记文档，保留 `templates/collaboration-starter` 与项目级 `docs/dev-log.md`
+- 更新 `.codex` Run action、架构文档、AI 上下文和 Xcode 预览手册中的引用
+
+Files Modified:
+- `.codex/environments/environment.toml`
+- `scripts/codex-run.sh`
+- `Sources/TextGrabberKit/UI/ResultPopoverPreviewHost.swift`
+- `docs/ai-context.md`
+- `docs/architecture.md`
+- `docs/xcode-preview-playbook.md`
+- `docs/dev-log.md`
+
+Notes:
+- 本次仍不改动 OCR、翻译或结果面板运行逻辑，只整理文件布局和命名
+
+## 2026-06-19
+
+Author: Codex
+
+Summary:
+- 梳理项目文件并清理非必要本地产物，保持仓库轻量
+
+Changes:
+- 删除 SwiftPM 构建缓存、本地打包产物、Finder 元数据、空临时目录和空占位文件
+- 扩充 `.gitignore`，避免 `.DS_Store`、Swift 构建缓存、`dist/` 和 `scratch/` 再进入工作区
+- 保留 `.codex/`、`scripts/codex-run.sh` 和 `templates/collaboration-starter`，它们分别是 Codex 运行入口和已文档化的协作模板资产
+
+Files Modified:
+- `.gitignore`
+- `docs/dev-log.md`
+
+Notes:
+- 本次未改动源码逻辑；`dist/` 和 `.build/` 后续可通过打包或构建命令重新生成
+
+## 2026-06-19
+
+Author: Codex
+
+Summary:
+- 新增 Codex app 内预览入口，用于一键构建并启动真实 macOS 菜单栏应用
+- 避开 iCloud Drive 路径下 `xattr -cr` 可能触发的扩展属性问题，将 Codex 预览产物输出到本机临时目录
+
+Changes:
+- 新增 `scripts/codex-run.sh`，封装停止旧进程、debug 构建、启动、验证和日志模式
+- 新增 `.codex/environments/environment.toml`，将 Codex `Run` action 指向预览脚本
+- 更新架构和 AI 上下文文档，记录新的预览入口
+
+Files Modified:
+- `scripts/codex-run.sh`
+- `.codex/environments/environment.toml`
+- `docs/ai-context.md`
+- `docs/architecture.md`
+- `docs/dev-log.md`
+
+Notes:
+- 已通过 `./scripts/codex-run.sh --verify` 验证构建、签名、启动和进程检测
+- `TextGrabber` 是 `LSUIElement` 菜单栏应用，不会自动出现普通前台窗口；预览时需从菜单栏图标或调试入口触发界面
+
 ## 2026-05-12
 
 Author: Codex

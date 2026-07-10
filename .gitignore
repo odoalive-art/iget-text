@@ -1,5 +1,10 @@
-.build
-.swift-home
-.swiftpm
-.clang-cache
-dist
+.DS_Store
+
+.build/
+.clang-cache/
+.swift-cache/
+.swift-home/
+.swiftpm/
+
+dist/
+scratch/
