@@ -1,4 +1,5 @@
 import SwiftUI
+import TextGrabberKit
 
 @main
 struct TextGrabberApp: App {
@@ -6,7 +7,7 @@ struct TextGrabberApp: App {
 
     var body: some Scene {
         Settings {
-            EmptyView()
+            SettingsView(settings: appDelegate.settings)
         }
     }
 }

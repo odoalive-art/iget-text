@@ -3,6 +3,16 @@ import XCTest
 
 @MainActor
 final class RecognitionResultStateTests: XCTestCase {
+    func testEmptyOCRResultShowsNoTextMessage() {
+        let state = RecognitionResultState()
+
+        state.showResult(OCRResult(rawText: "", readingOptimizedText: "", lines: [], confidenceSummary: 0))
+
+        XCTAssertEqual(state.recognizedText, "未识别到文本")
+        state.setOutputMode(.sourceLayout)
+        XCTAssertEqual(state.recognizedText, "未识别到文本")
+    }
+
     func testShowResultRequestsTextFocus() {
         let state = RecognitionResultState()
         let result = OCRResult(

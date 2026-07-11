@@ -768,7 +768,7 @@ private struct ResultTextEditor: NSViewRepresentable {
         scrollView.autohidesScrollers = true
         scrollView.scrollerStyle = .overlay
 
-        let textView = FocusableResultTextView()
+        let textView = FocusableResultTextView(frame: scrollView.bounds)
         textView.delegate = context.coordinator
         textView.string = text
         textView.isEditable = true
@@ -780,7 +780,17 @@ private struct ResultTextEditor: NSViewRepresentable {
         textView.font = .systemFont(ofSize: ResultPopoverLayout.resultTextFontSize, weight: .regular)
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
         textView.textContainerInset = NSSize(width: 2, height: 0)
+        textView.textContainer?.containerSize = NSSize(
+            width: scrollView.contentSize.width,
+            height: CGFloat.greatestFiniteMagnitude
+        )
         textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.lineFragmentPadding = 1
         textView.textContainer?.lineBreakMode = .byWordWrapping
@@ -822,16 +832,14 @@ private struct ResultTextEditor: NSViewRepresentable {
         textView.typingAttributes[.paragraphStyle] = paragraphStyle
 
         let selectedRange = textView.selectedRange()
-        let attributedText = NSMutableAttributedString(string: textView.string)
-        attributedText.addAttributes(
+        textView.textStorage?.setAttributes(
             [
                 .font: NSFont.systemFont(ofSize: ResultPopoverLayout.resultTextFontSize, weight: .regular),
                 .foregroundColor: NSColor.labelColor,
                 .paragraphStyle: paragraphStyle
             ],
-            range: NSRange(location: 0, length: attributedText.length)
+            range: NSRange(location: 0, length: textView.textStorage?.length ?? 0)
         )
-        textView.textStorage?.setAttributedString(attributedText)
         textView.setSelectedRange(selectedRange)
     }
 

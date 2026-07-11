@@ -27,9 +27,17 @@ struct OCRService {
                     let candidates = try variants.enumerated().map { index, variant in
                         try performRecognition(on: variant, usesLanguageCorrection: index == 0)
                     }
-                    let best = candidates.max(by: { lhs, rhs in
+                    var best = candidates.max(by: { lhs, rhs in
                         lhs.qualityScore < rhs.qualityScore
                     }) ?? OCRResult(rawText: "", readingOptimizedText: "", lines: [], confidenceSummary: 0)
+
+                    if best.rawText.isEmpty, !languages.isEmpty {
+                        best = try performRecognition(
+                            on: image,
+                            usesLanguageCorrection: true,
+                            recognitionLanguages: []
+                        )
+                    }
 
                     continuation.resume(returning: best)
                 } catch {
@@ -39,10 +47,15 @@ struct OCRService {
         }
     }
 
-    private func performRecognition(on image: CGImage, usesLanguageCorrection: Bool) throws -> OCRResult {
+    private func performRecognition(
+        on image: CGImage,
+        usesLanguageCorrection: Bool,
+        recognitionLanguages: [String]? = nil
+    ) throws -> OCRResult {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
-        request.recognitionLanguages = languages
+        request.recognitionLanguages = recognitionLanguages ?? languages
+        request.automaticallyDetectsLanguage = true
         request.usesLanguageCorrection = usesLanguageCorrection
 
         let handler = VNImageRequestHandler(cgImage: image)

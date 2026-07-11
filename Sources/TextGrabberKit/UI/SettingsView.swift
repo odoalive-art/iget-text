@@ -2,10 +2,14 @@ import AppKit
 import Carbon
 import SwiftUI
 
-struct SettingsView: View {
+public struct SettingsView: View {
     @ObservedObject var settings: AppSettings
 
-    var body: some View {
+    public init(settings: AppSettings) {
+        self.settings = settings
+    }
+
+    public var body: some View {
         Form {
             Section("快捷键") {
                 Picker("激活方式", selection: $settings.activationMode) {

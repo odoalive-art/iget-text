@@ -4,11 +4,11 @@ import TextGrabberKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: AppCoordinator?
+    let settings = AppSettings()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
-        let settings = AppSettings()
         coordinator = AppCoordinator(settings: settings)
         coordinator?.start()
     }

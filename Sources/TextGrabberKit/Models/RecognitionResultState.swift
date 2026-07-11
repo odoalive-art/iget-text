@@ -67,8 +67,11 @@ final class RecognitionResultState: ObservableObject {
 
     func showResult(_ result: OCRResult) {
         lastOCRResult = result
-        readingOptimizedDraft = normalizedDisplayText(result.readingOptimizedText)
-        sourceLayoutDraft = normalizedDisplayText(result.rawText)
+        let readingText = normalizedDisplayText(result.readingOptimizedText)
+        let sourceText = normalizedDisplayText(result.rawText)
+        let emptyResultMessage = "未识别到文本"
+        readingOptimizedDraft = readingText.isEmpty ? emptyResultMessage : readingText
+        sourceLayoutDraft = sourceText.isEmpty ? emptyResultMessage : sourceText
         recognizedText = displayText(for: outputMode)
         requestTextFocus()
     }
