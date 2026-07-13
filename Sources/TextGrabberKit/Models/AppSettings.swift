@@ -191,6 +191,7 @@ public final class AppSettings: ObservableObject {
     @Published var doubleTapModifier: DoubleTapModifier
     @Published var resultPanelPlacement: ResultPanelPlacementMode
     @Published var translationProvider: TranslationProviderMode
+    @Published var isBlockEditingEnabled: Bool
     @Published var launchAtLogin = false
 
     let ocrLanguages = ["zh-Hans", "en-US"]
@@ -201,6 +202,7 @@ public final class AppSettings: ObservableObject {
     private let doubleTapModifierKey = "app.doubleTapModifier"
     private let resultPanelPlacementKey = "app.resultPanelPlacement"
     private let translationProviderKey = "app.translationProvider"
+    private let blockEditingEnabledKey = "app.blockEditingEnabled"
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -208,6 +210,7 @@ public final class AppSettings: ObservableObject {
         doubleTapModifier = DoubleTapModifier(rawValue: defaults.string(forKey: doubleTapModifierKey) ?? "") ?? .command
         resultPanelPlacement = ResultPanelPlacementMode(rawValue: defaults.string(forKey: resultPanelPlacementKey) ?? "") ?? .statusItem
         translationProvider = TranslationProviderMode(rawValue: defaults.string(forKey: translationProviderKey) ?? "") ?? .automatic
+        isBlockEditingEnabled = defaults.object(forKey: blockEditingEnabledKey) as? Bool ?? true
 
         if let data = defaults.data(forKey: hotkeyKey),
            let shortcut = try? JSONDecoder().decode(KeyboardShortcut.self, from: data) {
@@ -253,6 +256,13 @@ public final class AppSettings: ObservableObject {
             .dropFirst()
             .sink { [weak self] provider in
                 self?.defaults.set(provider.rawValue, forKey: self?.translationProviderKey ?? "")
+            }
+            .store(in: &cancellables)
+
+        $isBlockEditingEnabled
+            .dropFirst()
+            .sink { [weak self] isEnabled in
+                self?.defaults.set(isEnabled, forKey: self?.blockEditingEnabledKey ?? "")
             }
             .store(in: &cancellables)
     }

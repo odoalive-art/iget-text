@@ -18,6 +18,7 @@ struct ResultPopoverView: View {
             resultState: resultState,
             translationServiceResolver: coordinator.translationServiceResolver,
             translationProvider: coordinator.settings.translationProvider,
+            isBlockEditingEnabled: coordinator.settings.isBlockEditingEnabled,
             outputMode: Binding(
                 get: { resultState.outputMode },
                 set: { coordinator.setOutputMode($0) }

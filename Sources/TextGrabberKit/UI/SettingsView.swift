@@ -79,6 +79,13 @@ public struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("文本编辑") {
+                Toggle("启用块编辑", isOn: $settings.isBlockEditingEnabled)
+
+                Text("在识别结果中，第一次按 ⌘A 或 ⌃A 选择光标所在段落；连续再按一次可选择全文。")
+                    .foregroundStyle(.secondary)
+            }
+
             Section("其他") {
                 Picker("识别窗口位置", selection: $settings.resultPanelPlacement) {
                     ForEach(ResultPanelPlacementMode.allCases, id: \.self) { mode in
@@ -92,7 +99,7 @@ public struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding(20)
-        .frame(width: 460, height: 380)
+        .frame(width: 460, height: 440)
     }
 
     private func openAccessibilityPreferences() {

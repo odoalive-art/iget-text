@@ -60,6 +60,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.doubleTapModifier, .command)
         XCTAssertEqual(settings.resultPanelPlacement, .statusItem)
         XCTAssertEqual(settings.translationProvider, .automatic)
+        XCTAssertTrue(settings.isBlockEditingEnabled)
     }
 
     func testPersistsActivationModeAndResultPanelPlacement() {
@@ -69,10 +70,22 @@ final class AppSettingsTests: XCTestCase {
         settings.activationMode = .functionKey
         settings.resultPanelPlacement = .followMouse
         settings.translationProvider = .systemOnly
+        settings.isBlockEditingEnabled = false
 
         XCTAssertEqual(defaults.string(forKey: "app.activationMode"), CaptureActivationMode.functionKey.rawValue)
         XCTAssertEqual(defaults.string(forKey: "app.resultPanelPlacement"), ResultPanelPlacementMode.followMouse.rawValue)
         XCTAssertEqual(defaults.string(forKey: "app.translationProvider"), TranslationProviderMode.systemOnly.rawValue)
+        XCTAssertEqual(defaults.object(forKey: "app.blockEditingEnabled") as? Bool, false)
+    }
+
+    func testRestoresBlockEditingPreference() {
+        let defaults = makeDefaults()
+        let settings = AppSettings(defaults: defaults)
+        settings.isBlockEditingEnabled = false
+
+        let restoredSettings = AppSettings(defaults: defaults)
+
+        XCTAssertFalse(restoredSettings.isBlockEditingEnabled)
     }
 
     func testPersistsAndRestoresDoubleTapModifier() {

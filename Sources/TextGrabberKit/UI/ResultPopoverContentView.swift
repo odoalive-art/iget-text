@@ -18,6 +18,7 @@ struct ResultPopoverContentView: View {
     @ObservedObject var resultState: RecognitionResultState
     let translationServiceResolver: TranslationServiceResolver
     let translationProvider: TranslationProviderMode
+    let isBlockEditingEnabled: Bool
     @Binding var outputMode: OCRTextOutputMode
     @Binding var recognizedText: String
     let capturedPreviewImage: NSImage?
@@ -273,7 +274,8 @@ struct ResultPopoverContentView: View {
         ResultTextEditor(
             text: $recognizedText,
             focusRequestToken: resultState.textFocusRequestToken,
-            outputMode: outputMode
+            outputMode: outputMode,
+            isBlockEditingEnabled: isBlockEditingEnabled
         )
         .frame(
             maxWidth: .infinity,
@@ -862,6 +864,7 @@ private struct ResultTextEditor: NSViewRepresentable {
     @Binding var text: String
     let focusRequestToken: Int
     let outputMode: OCRTextOutputMode
+    let isBlockEditingEnabled: Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text)
@@ -879,6 +882,7 @@ private struct ResultTextEditor: NSViewRepresentable {
         let textView = FocusableResultTextView(frame: scrollView.bounds)
         textView.delegate = context.coordinator
         textView.string = text
+        textView.isBlockEditingEnabled = isBlockEditingEnabled
         textView.isEditable = true
         textView.isRichText = false
         textView.isSelectable = true
@@ -915,6 +919,8 @@ private struct ResultTextEditor: NSViewRepresentable {
         if textView.string != text {
             textView.string = text
         }
+
+        textView.isBlockEditingEnabled = isBlockEditingEnabled
 
         applyParagraphStyle(to: textView)
 
@@ -967,7 +973,118 @@ private struct ResultTextEditor: NSViewRepresentable {
 }
 
 private final class FocusableResultTextView: NSTextView {
+    var isBlockEditingEnabled = false {
+        didSet {
+            guard !isBlockEditingEnabled else { return }
+            usesBlockSelectionAppearance = false
+            needsDisplay = true
+        }
+    }
+    private var lastBlockSelectionRange: NSRange?
+    private var usesBlockSelectionAppearance = false
+
     override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let isSelectAllShortcut = event.charactersIgnoringModifiers?.lowercased() == "a"
+
+        guard isBlockEditingEnabled,
+              isSelectAllShortcut,
+              modifiers == .command || modifiers == .control else {
+            clearBlockSelectionAppearance()
+            super.keyDown(with: event)
+            return
+        }
+
+        selectCurrentBlockOrAllText()
+    }
+
+    override func doCommand(by selector: Selector) {
+        guard isBlockEditingEnabled,
+              selector == #selector(moveToBeginningOfLine(_:)),
+              isControlACommand else {
+            super.doCommand(by: selector)
+            return
+        }
+
+        selectCurrentBlockOrAllText()
+    }
+
+    override func selectAll(_ sender: Any?) {
+        guard isBlockEditingEnabled else {
+            super.selectAll(sender)
+            return
+        }
+
+        selectCurrentBlockOrAllText()
+    }
+
+    override func moveToBeginningOfLine(_ sender: Any?) {
+        guard isBlockEditingEnabled, isControlACommand else {
+            super.moveToBeginningOfLine(sender)
+            return
+        }
+
+        selectCurrentBlockOrAllText()
+    }
+
+    private func selectCurrentBlockOrAllText() {
+        let selection = BlockEditingSelection.next(
+            in: string,
+            selectedRange: selectedRange(),
+            previousBlockSelectionRange: lastBlockSelectionRange
+        )
+        usesBlockSelectionAppearance = true
+        lastBlockSelectionRange = selection.selectedBlockRange
+        setSelectedRange(selection.range)
+        needsDisplay = true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        clearBlockSelectionAppearance()
+        super.mouseDown(with: event)
+    }
+
+    override func drawBackground(in rect: NSRect) {
+        super.drawBackground(in: rect)
+
+        guard usesBlockSelectionAppearance,
+              let layoutManager else {
+            return
+        }
+
+        let selectedRange = selectedRange()
+        guard selectedRange.length > 0 else { return }
+
+        let glyphRange = layoutManager.glyphRange(
+            forCharacterRange: selectedRange,
+            actualCharacterRange: nil
+        )
+        let backgroundColor = (selectedTextAttributes[.backgroundColor] as? NSColor)
+            ?? .selectedTextBackgroundColor
+        let textOrigin = textContainerOrigin
+
+        layoutManager.enumerateLineFragments(forGlyphRange: glyphRange) { lineFragmentRect, _, _, _, _ in
+            let selectionRect = lineFragmentRect.offsetBy(dx: textOrigin.x, dy: textOrigin.y)
+            guard selectionRect.intersects(rect) else { return }
+            backgroundColor.setFill()
+            selectionRect.intersection(rect).fill()
+        }
+    }
+
+    private func clearBlockSelectionAppearance() {
+        guard usesBlockSelectionAppearance else { return }
+        usesBlockSelectionAppearance = false
+        needsDisplay = true
+    }
+
+    private var isControlACommand: Bool {
+        guard let event = NSApp.currentEvent else { return false }
+
+        return event.charactersIgnoringModifiers?.lowercased() == "a"
+            && event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .control
+    }
 
     override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
         guard flag else { return }

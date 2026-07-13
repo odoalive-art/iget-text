@@ -159,6 +159,7 @@ private struct ResultPopoverDebugPanelView: View {
                     resultState: resultState,
                     translationServiceResolver: TranslationServiceResolver(),
                     translationProvider: .automatic,
+                    isBlockEditingEnabled: true,
                     outputMode: $outputMode,
                     recognizedText: $recognizedText,
                     capturedPreviewImage: previewImage,
