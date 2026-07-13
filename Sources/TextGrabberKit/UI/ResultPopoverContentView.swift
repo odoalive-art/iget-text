@@ -35,6 +35,8 @@ struct ResultPopoverContentView: View {
     @State private var prewarmPlan: TranslationPlan?
     @State private var translationPlan: TranslationPlan?
     @State private var activeTooltip: TooltipPresentation?
+    @State private var isCopyConfirmationVisible = false
+    @State private var copyConfirmationToken = 0
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -84,6 +86,13 @@ struct ResultPopoverContentView: View {
         }
         .overlay(alignment: .topLeading) {
             tooltipOverlay
+        }
+        .overlay(alignment: .bottom) {
+            if isCopyConfirmationVisible {
+                CopyConfirmationToast()
+                    .padding(.bottom, ResultPopoverLayout.footerHeight + 8)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+            }
         }
         .background(prewarmTranslationTaskBridge)
         .background(translationTaskBridge)
@@ -251,9 +260,9 @@ struct ResultPopoverContentView: View {
 
     private var primaryResultCard: some View {
         resultTextBlock
-            .padding(.top, 10)
-            .padding(.horizontal, 10)
-            .padding(.bottom, 10)
+            .padding(.top, ResultPopoverLayout.contentCardTopPadding)
+            .padding(.horizontal, ResultPopoverLayout.contentCardInnerHorizontalPadding)
+            .padding(.bottom, ResultPopoverLayout.contentCardBottomPadding)
             .frame(
                 maxWidth: .infinity,
                 minHeight: primaryCardHeight,
@@ -391,7 +400,7 @@ struct ResultPopoverContentView: View {
                     usesCapsule: true,
                     tooltipTarget: .copy,
                     onTooltipVisibilityChange: updateActiveTooltip,
-                    action: onCopy
+                    action: copyRecognizedText
                 )
                 .disabled(recognizedText.isEmpty || displayState != .result)
             }
@@ -441,6 +450,25 @@ struct ResultPopoverContentView: View {
 
     private var usesCompactTextLayout: Bool {
         placementMode == .followMouse && displayState == .result
+    }
+
+    private func copyRecognizedText() {
+        onCopy()
+        copyConfirmationToken &+= 1
+        let token = copyConfirmationToken
+
+        withAnimation(.easeOut(duration: 0.16)) {
+            isCopyConfirmationVisible = true
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            guard token == copyConfirmationToken else { return }
+
+            withAnimation(.easeIn(duration: 0.16)) {
+                isCopyConfirmationVisible = false
+            }
+        }
     }
 
     @ViewBuilder
@@ -620,9 +648,9 @@ struct ResultPopoverContentView: View {
                 .frame(height: visibleTranslationTextHeight)
             }
         }
-        .padding(.top, 10)
-        .padding(.horizontal, 10)
-        .padding(.bottom, 10)
+        .padding(.top, ResultPopoverLayout.translationCardTopPadding)
+        .padding(.horizontal, ResultPopoverLayout.translationCardHorizontalPadding)
+        .padding(.bottom, ResultPopoverLayout.translationCardBottomPadding)
         .background(resultCardBackground)
     }
 
@@ -832,6 +860,23 @@ private struct TooltipBubble: View {
             .padding(.vertical, 5)
             .background(Color(nsColor: .controlBackgroundColor), in: Capsule())
             .overlay(Capsule().strokeBorder(.separator, lineWidth: 0.5))
+    }
+}
+
+private struct CopyConfirmationToast: View {
+    var body: some View {
+        Label("已复制", systemImage: "checkmark")
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background {
+                Capsule()
+                    .fill(.regularMaterial)
+                Capsule()
+                    .fill(Color.black.opacity(0.78))
+            }
+            .overlay(Capsule().strokeBorder(Color.black.opacity(0.55), lineWidth: 0.5))
     }
 }
 
@@ -1049,6 +1094,10 @@ private final class FocusableResultTextView: NSTextView {
         layoutManager?.ensureGlyphs(forCharacterRange: selection.range)
         layoutManager?.ensureLayout(forCharacterRange: selection.range)
         usesBlockSelectionAppearance = true
+        selectedTextAttributes = [
+            .backgroundColor: NSColor.clear,
+            .foregroundColor: NSColor.textColor
+        ]
         lastBlockSelectionRange = selection.selectedBlockRange
         setSelectedRange(selection.range)
         needsDisplay = true
@@ -1063,7 +1112,8 @@ private final class FocusableResultTextView: NSTextView {
         super.drawBackground(in: rect)
 
         guard usesBlockSelectionAppearance,
-              let layoutManager else {
+              let layoutManager,
+              let textContainer else {
             return
         }
 
@@ -1074,21 +1124,23 @@ private final class FocusableResultTextView: NSTextView {
             forCharacterRange: selectedRange,
             actualCharacterRange: nil
         )
-        let backgroundColor = (selectedTextAttributes[.backgroundColor] as? NSColor)
-            ?? .selectedTextBackgroundColor
         let textOrigin = textContainerOrigin
+        var selectionRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+        selectionRect = selectionRect.offsetBy(dx: textOrigin.x, dy: textOrigin.y)
+        selectionRect = selectionRect.insetBy(dx: -1, dy: -2)
+        guard selectionRect.intersects(rect) else { return }
 
-        layoutManager.enumerateLineFragments(forGlyphRange: glyphRange) { lineFragmentRect, _, _, _, _ in
-            let selectionRect = lineFragmentRect.offsetBy(dx: textOrigin.x, dy: textOrigin.y)
-            guard selectionRect.intersects(rect) else { return }
-            backgroundColor.setFill()
-            selectionRect.intersection(rect).fill()
-        }
+        NSColor.selectedTextBackgroundColor.setFill()
+        NSBezierPath(rect: selectionRect).fill()
     }
 
     private func clearBlockSelectionAppearance() {
         guard usesBlockSelectionAppearance else { return }
         usesBlockSelectionAppearance = false
+        selectedTextAttributes = [
+            .backgroundColor: NSColor.selectedTextBackgroundColor,
+            .foregroundColor: NSColor.textColor
+        ]
         needsDisplay = true
     }
 

@@ -6,27 +6,27 @@ enum ResultPopoverLayout {
     static let height: CGFloat = 483
     static let compactHeight: CGFloat = 360
     static let cornerRadius: CGFloat = 20
-    static let iconButtonDiameter: CGFloat = 30
+    static let iconButtonDiameter: CGFloat = 28
     static let contentCardCornerRadius: CGFloat = 12
-    static let toolbarHeight: CGFloat = 44
+    static let toolbarHeight: CGFloat = 48
     static let headerHeight: CGFloat = toolbarHeight
     static let horizontalInset: CGFloat = 14
-    /// 让角落按钮圆心与窗口圆角圆心重合：24 - 30 / 2 = 9。
-    static let cornerActionInset: CGFloat = cornerRadius - (iconButtonDiameter / 2)
+    /// 角落工具按钮与窗口边缘保持一致的 10pt 留白。
+    static let cornerActionInset: CGFloat = 10
     static let headerTrailingInset: CGFloat = cornerActionInset
     static let previewCornerRadius: CGFloat = 12
     static let contentCardHeight: CGFloat = 200
     static let topContentPadding: CGFloat = 0
     /// 底部工具栏贴合窗口内容边缘。
-    static let bottomContentPadding: CGFloat = 1
+    static let bottomContentPadding: CGFloat = 0
     static let sectionSpacing: CGFloat = 10
     static let footerHeight: CGFloat = toolbarHeight
     static let previewVerticalPadding: CGFloat = 0
     static let previewWidthRatio: CGFloat = 1.0
     static let previewMaxHeight: CGFloat = 180
     static let previewPlaceholderHeight: CGFloat = 110
-    static let contentCardTopPadding: CGFloat = 10
-    static let contentCardBottomPadding: CGFloat = 10
+    static let contentCardTopPadding: CGFloat = 14
+    static let contentCardBottomPadding: CGFloat = 14
     static let contentCardInnerHorizontalPadding: CGFloat = 10
     static let resultTextFontSize: CGFloat = 14
     static let translationTextFontSize: CGFloat = 14
@@ -37,8 +37,8 @@ enum ResultPopoverLayout {
     static let minimumTranslationLines: CGFloat = 3
     static let maximumTranslationLines: CGFloat = 12
     static let translationCardSpacing: CGFloat = 10
-    static let translationCardTopPadding: CGFloat = 10
-    static let translationCardBottomPadding: CGFloat = 10
+    static let translationCardTopPadding: CGFloat = 14
+    static let translationCardBottomPadding: CGFloat = 14
     static let translationCardHorizontalPadding: CGFloat = 10
     static let translationHeaderHeight: CGFloat = 16
     static let bodyParagraphSpacing: CGFloat = 10
@@ -297,8 +297,11 @@ struct LiquidGlassSurface<Content: View>: NSViewRepresentable {
 }
 
 final class LiquidGlassContainerView: NSView {
+    private let contentContainer = NSView()
+    private let backgroundTintView = NSView()
     private let hostingView = NSHostingView(rootView: AnyView(EmptyView()))
     private let effectView: NSView
+    private let innerBorderLayer = CAShapeLayer()
     var cornerRadius: CGFloat {
         didSet {
             updateStyling()
@@ -325,7 +328,11 @@ final class LiquidGlassContainerView: NSView {
 
         translatesAutoresizingMaskIntoConstraints = false
         effectView.translatesAutoresizingMaskIntoConstraints = false
+        contentContainer.translatesAutoresizingMaskIntoConstraints = false
+        backgroundTintView.translatesAutoresizingMaskIntoConstraints = false
         hostingView.translatesAutoresizingMaskIntoConstraints = false
+        backgroundTintView.wantsLayer = true
+        backgroundTintView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.20).cgColor
 
         addSubview(effectView)
         NSLayoutConstraint.activate([
@@ -336,16 +343,29 @@ final class LiquidGlassContainerView: NSView {
         ])
 
         if #available(macOS 26.0, *), let glassView = effectView as? NSGlassEffectView {
-            glassView.contentView = hostingView
+            glassView.contentView = contentContainer
         } else {
-            effectView.addSubview(hostingView)
-            NSLayoutConstraint.activate([
-                hostingView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
-                hostingView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
-                hostingView.topAnchor.constraint(equalTo: effectView.topAnchor),
-                hostingView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor)
-            ])
+            effectView.addSubview(contentContainer)
         }
+
+        contentContainer.addSubview(backgroundTintView)
+        contentContainer.addSubview(hostingView)
+        NSLayoutConstraint.activate([
+            contentContainer.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
+            contentContainer.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
+            contentContainer.topAnchor.constraint(equalTo: effectView.topAnchor),
+            contentContainer.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
+
+            backgroundTintView.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor),
+            backgroundTintView.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor),
+            backgroundTintView.topAnchor.constraint(equalTo: contentContainer.topAnchor),
+            backgroundTintView.bottomAnchor.constraint(equalTo: contentContainer.bottomAnchor),
+
+            hostingView.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor),
+            hostingView.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor),
+            hostingView.topAnchor.constraint(equalTo: contentContainer.topAnchor),
+            hostingView.bottomAnchor.constraint(equalTo: contentContainer.bottomAnchor)
+        ])
 
         updateStyling()
     }
@@ -366,7 +386,7 @@ final class LiquidGlassContainerView: NSView {
 
     override func layout() {
         super.layout()
-        updateShadowPath()
+        updateStyling()
     }
 
     private func updateStyling() {
@@ -380,6 +400,23 @@ final class LiquidGlassContainerView: NSView {
         layer?.shadowOpacity = 0.15
         layer?.shadowRadius = 10
         layer?.shadowOffset = CGSize(width: 0, height: -5)
+
+        if innerBorderLayer.superlayer == nil {
+            layer?.addSublayer(innerBorderLayer)
+        }
+        let innerBorderInset: CGFloat = 0.75
+        let innerBorderBounds = bounds.insetBy(dx: innerBorderInset, dy: innerBorderInset)
+        innerBorderLayer.frame = bounds
+        innerBorderLayer.path = CGPath(
+            roundedRect: innerBorderBounds,
+            cornerWidth: cornerRadius - innerBorderInset,
+            cornerHeight: cornerRadius - innerBorderInset,
+            transform: nil
+        )
+        innerBorderLayer.fillColor = NSColor.clear.cgColor
+        innerBorderLayer.strokeColor = NSColor.white.cgColor
+        innerBorderLayer.lineWidth = 0.5
+        innerBorderLayer.zPosition = 1
         updateShadowPath()
 
         effectView.wantsLayer = true

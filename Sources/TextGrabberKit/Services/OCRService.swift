@@ -56,7 +56,7 @@ struct OCRService {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.recognitionLanguages = recognitionLanguages ?? languages
-        request.automaticallyDetectsLanguage = true
+        request.automaticallyDetectsLanguage = false
         request.usesLanguageCorrection = usesLanguageCorrection
 
         let handler = VNImageRequestHandler(cgImage: image)
@@ -64,7 +64,7 @@ struct OCRService {
 
         let observations = (request.results ?? [])
             .compactMap { observation -> (String, Float, CGRect)? in
-                guard let candidate = observation.topCandidates(1).first,
+                guard let candidate = preferredCandidate(from: observation.topCandidates(3)),
                       let text = OCRTextLayoutRules.sanitizeObservationText(candidate.string)
                 else {
                     return nil
@@ -101,6 +101,29 @@ struct OCRService {
             lines: lines.map { OCRLine(text: $0.text, confidence: $0.confidence) },
             confidenceSummary: averageConfidence
         )
+    }
+
+    /// 中英文混排时，Vision 偶尔会把短中文片段猜成带问号的英文音节。
+    /// 仅在主候选已明确标记不确定、且后备候选包含汉字时切换，避免影响正常英文识别。
+    private func preferredCandidate(from candidates: [VNRecognizedText]) -> VNRecognizedText? {
+        guard let primaryCandidate = candidates.first else { return nil }
+        guard supportsChineseRecognition,
+              primaryCandidate.string.contains("?")
+        else {
+            return primaryCandidate
+        }
+
+        return candidates.dropFirst().first(where: containsHanCharacters) ?? primaryCandidate
+    }
+
+    private var supportsChineseRecognition: Bool {
+        languages.contains { $0.lowercased().hasPrefix("zh") }
+    }
+
+    private func containsHanCharacters(_ candidate: VNRecognizedText) -> Bool {
+        candidate.string.unicodeScalars.contains { scalar in
+            (0x4E00...0x9FFF).contains(scalar.value)
+        }
     }
 
     private func groupObservationsIntoLines(_ observations: [(String, Float, CGRect)]) -> [[(String, Float, CGRect)]] {
