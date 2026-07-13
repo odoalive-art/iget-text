@@ -228,7 +228,7 @@ struct ResultPopoverContentView: View {
                 maxHeight: ResultPopoverLayout.contentCardHeight,
                 alignment: .topLeading
             )
-            .background(primaryResultCardBackground)
+            .background(resultCardBackground)
     }
 
     private var primaryResultCard: some View {
@@ -243,12 +243,12 @@ struct ResultPopoverContentView: View {
                 maxHeight: primaryCardHeight,
                 alignment: .topLeading
             )
-            .background(primaryResultCardBackground)
+            .background(resultCardBackground)
     }
 
-    private var primaryResultCardBackground: some View {
+    private var resultCardBackground: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(.quaternary.opacity(0.5))
+            .fill(.quaternary)
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(.separator.opacity(0.5), lineWidth: 0.5)
@@ -570,16 +570,7 @@ struct ResultPopoverContentView: View {
         .padding(.top, 10)
         .padding(.horizontal, 10)
         .padding(.bottom, 10)
-        .background(translationCardBackground)
-    }
-
-    private var translationCardBackground: some View {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(.quaternary)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(.separator.opacity(0.5), lineWidth: 0.5)
-            )
+        .background(resultCardBackground)
     }
 
     private var translationDisplayColor: Color {
