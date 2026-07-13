@@ -60,6 +60,7 @@ struct ResultPopoverContentView: View {
         LiquidGlassSurface(cornerRadius: ResultPopoverLayout.cornerRadius) {
             VStack(spacing: 0) {
                 header
+                    .zIndex(1)
 
                 VStack(spacing: 10) {
                     if !usesCompactTextLayout {
@@ -76,10 +77,6 @@ struct ResultPopoverContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .overlay(
-            RoundedRectangle(cornerRadius: ResultPopoverLayout.cornerRadius, style: .continuous)
-                .strokeBorder(.separator.opacity(0.5), lineWidth: 0.5)
-        )
         .background(prewarmTranslationTaskBridge)
         .background(translationTaskBridge)
     }
@@ -92,14 +89,22 @@ struct ResultPopoverContentView: View {
 
             Spacer()
 
-            HStack(spacing: 2) {
+            HStack(spacing: 8) {
                 LightIconButton(
                     symbol: isPinned ? "pin.fill" : "pin",
                     accessibilityLabel: isPinned ? "取消固定窗口" : "固定窗口",
                     isSelected: isPinned,
+                    usesCapsule: true,
+                    tooltipPlacement: .below,
                     action: onTogglePin
                 )
-                LightIconButton(symbol: "gearshape", accessibilityLabel: "设置", action: onShowSettings)
+                LightIconButton(
+                    symbol: "gearshape",
+                    accessibilityLabel: "设置",
+                    usesCapsule: true,
+                    tooltipPlacement: .below,
+                    action: onShowSettings
+                )
             }
         }
         .padding(.leading, ResultPopoverLayout.horizontalInset)
@@ -334,64 +339,32 @@ struct ResultPopoverContentView: View {
 
     private var resultFooter: some View {
         HStack(spacing: 0) {
-            glassButtonGroup {
-                LightIconButton(
-                    symbol: "arrow.clockwise",
-                    accessibilityLabel: "重新识别",
-                    standalone: false,
-                    action: onRetry
-                )
-                .disabled(displayState == .recognizing)
-            }
+            LightIconButton(
+                symbol: "arrow.clockwise",
+                accessibilityLabel: "重新识别",
+                usesCapsule: true,
+                action: onRetry
+            )
+            .disabled(displayState == .recognizing)
 
             Spacer(minLength: 0)
 
-            glassButtonGroup {
+            HStack(spacing: 8) {
                 LightIconButton(
-                    symbol: "wand.and.stars",
-                    accessibilityLabel: outputMode == .readingOptimized ? "阅读优化（已开启，点击切换为原始版面）" : "阅读优化（已关闭，点击开启）",
-                    isSelected: outputMode == .readingOptimized,
-                    standalone: false,
-                    action: {
-                        outputMode = outputMode == .readingOptimized ? .sourceLayout : .readingOptimized
-                    }
-                )
-                .disabled(displayState != .result)
-
-                LightIconButton(
-                    symbol: "translate",
+                    symbol: "globe",
                     accessibilityLabel: "翻译",
-                    standalone: false,
+                    usesCapsule: true,
                     action: presentSystemTranslation
                 )
                 .disabled(!canTranslateCurrentText)
 
                 LightIconButton(
-                    symbol: "doc.on.doc",
+                    symbol: "square.on.square",
                     accessibilityLabel: "拷贝文本",
-                    bouncesOnTap: true,
-                    standalone: false,
+                    usesCapsule: true,
                     action: onCopy
                 )
                 .disabled(recognizedText.isEmpty || displayState != .result)
-            }
-        }
-    }
-
-    private func glassButtonGroup<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        let group = HStack(spacing: 2) {
-            content()
-        }
-        .padding(.horizontal, 5)
-        .frame(height: 34)
-
-        return Group {
-            if #available(macOS 26.0, *) {
-                group.glassEffect(.regular, in: Capsule())
-            } else {
-                group
-                    .background(.regularMaterial, in: Capsule())
-                    .overlay(Capsule().strokeBorder(.primary.opacity(0.10), lineWidth: 0.5))
             }
         }
     }
@@ -685,17 +658,26 @@ struct ResultPopoverContentView: View {
     }
 }
 
+private enum TooltipPlacement {
+    case above
+    case below
+}
+
 private struct LightIconButton: View {
     let symbol: String
     let accessibilityLabel: String
     var isSelected: Bool = false
     var bouncesOnTap: Bool = false
     var standalone: Bool = true
+    var usesCapsule: Bool = false
+    var tooltipPlacement: TooltipPlacement = .above
     let action: () -> Void
 
     @Environment(\.isEnabled) private var isEnabled
     @State private var isHovering = false
     @State private var bounceValue = 0
+    @State private var isTooltipVisible = false
+    @State private var tooltipRequestToken = 0
 
     var body: some View {
         Button {
@@ -705,7 +687,6 @@ private struct LightIconButton: View {
             action()
         } label: {
             iconImage
-                .font(.system(size: 13, weight: .medium))
                 .symbolEffect(.bounce, value: bounceValue)
                 .frame(width: 30, height: 30)
                 .background { buttonBackground }
@@ -714,22 +695,55 @@ private struct LightIconButton: View {
         .buttonStyle(.plain)
         .opacity(isEnabled ? 1 : 0.4)
         .accessibilityLabel(Text(accessibilityLabel))
-        .onHover { isHovering = $0 }
+        .overlay(alignment: tooltipPlacement == .above ? .top : .bottom) {
+            if isTooltipVisible {
+                TooltipBubble(title: accessibilityLabel)
+                    .offset(y: tooltipPlacement == .above ? -28 : 28)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
+        .onHover { isHovering = $0; updateTooltipVisibility(for: $0) }
+        .onDisappear {
+            tooltipRequestToken += 1
+            isTooltipVisible = false
+        }
+        .animation(.easeOut(duration: 0.12), value: isTooltipVisible)
+    }
+
+    private func updateTooltipVisibility(for isHovering: Bool) {
+        tooltipRequestToken += 1
+        let requestToken = tooltipRequestToken
+        isTooltipVisible = false
+
+        guard isHovering else { return }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard requestToken == tooltipRequestToken, self.isHovering else { return }
+            isTooltipVisible = true
+        }
     }
 
     @ViewBuilder
     private var buttonBackground: some View {
         if standalone {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(backgroundFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(.primary.opacity(0.06), lineWidth: 0.5)
-                )
+            if usesCapsule {
+                Capsule()
+                    .fill(backgroundFill)
+                    .overlay(Capsule().strokeBorder(.primary.opacity(0.06), lineWidth: 0.5))
+            } else {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(backgroundFill)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(.primary.opacity(0.06), lineWidth: 0.5)
+                    )
+            }
         } else if isSelected {
             Circle().fill(.primary.opacity(0.16))
         } else if isHovering, isEnabled {
-            Circle().fill(.primary.opacity(0.10))
+            Circle().fill(.primary.opacity(0.24))
         }
     }
 
@@ -738,15 +752,33 @@ private struct LightIconButton: View {
             return AnyShapeStyle(.primary.opacity(0.15))
         }
         if isHovering, isEnabled {
-            return AnyShapeStyle(.primary.opacity(0.10))
+            return AnyShapeStyle(.primary.opacity(0.24))
         }
         return AnyShapeStyle(.primary.opacity(0.05))
     }
 
     private var iconImage: some View {
         Image(systemName: symbol)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 14, height: 14)
             .symbolRenderingMode(.monochrome)
-            .foregroundStyle(Color.black)
+            .foregroundStyle(Color.secondary)
+    }
+}
+
+private struct TooltipBubble: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.primary)
+            .fixedSize()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color(nsColor: .controlBackgroundColor), in: Capsule())
+            .overlay(Capsule().strokeBorder(.separator, lineWidth: 0.5))
     }
 }
 

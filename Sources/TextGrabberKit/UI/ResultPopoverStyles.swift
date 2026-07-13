@@ -23,9 +23,7 @@ enum ResultPopoverLayout {
     static let contentCardTopPadding: CGFloat = 10
     static let contentCardBottomPadding: CGFloat = 10
     static let contentCardInnerHorizontalPadding: CGFloat = 10
-    static let contentCardInnerSpacing: CGFloat = 10
-    static let outputModeHeight: CGFloat = 28
-    static let resultTextFontSize: CGFloat = 14
+    static let resultTextFontSize: CGFloat = 13
     static let translationTextFontSize: CGFloat = 12
     static let resultLineHeight: CGFloat = 19
     static let translationLineHeight: CGFloat = 16
@@ -250,6 +248,29 @@ enum ResultPopoverLayout {
     }
 }
 
+/// 让无边框窗口能显示内容层的自定义投影，同时保持面板本身的定位不变。
+enum ResultPopoverShadowCanvas {
+    static let topInset: CGFloat = 36
+    static let horizontalInset: CGFloat = 36
+    static let bottomInset: CGFloat = 46
+
+    static func size(for surfaceSize: NSSize) -> NSSize {
+        NSSize(
+            width: surfaceSize.width + horizontalInset * 2,
+            height: surfaceSize.height + topInset + bottomInset
+        )
+    }
+
+    static func frame(for surfaceFrame: NSRect) -> NSRect {
+        NSRect(
+            x: surfaceFrame.minX - horizontalInset,
+            y: surfaceFrame.minY - bottomInset,
+            width: surfaceFrame.width + horizontalInset * 2,
+            height: surfaceFrame.height + topInset + bottomInset
+        )
+    }
+}
+
 struct LiquidGlassSurface<Content: View>: NSViewRepresentable {
     let cornerRadius: CGFloat
     let content: Content
@@ -334,16 +355,49 @@ final class LiquidGlassContainerView: NSView {
         hostingView.rootView = rootView
     }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateStyling()
+    }
+
+    override func layout() {
+        super.layout()
+        updateShadowPath()
+    }
+
     private func updateStyling() {
         wantsLayer = true
         layer?.cornerCurve = .continuous
         layer?.cornerRadius = cornerRadius
-        layer?.masksToBounds = true
+        layer?.masksToBounds = false
+        layer?.borderWidth = 0.5
+        layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = 0.15
+        layer?.shadowRadius = 10
+        layer?.shadowOffset = CGSize(width: 0, height: -5)
+        updateShadowPath()
+
+        effectView.wantsLayer = true
+        effectView.layer?.cornerCurve = .continuous
+        effectView.layer?.cornerRadius = cornerRadius
+        effectView.layer?.masksToBounds = true
 
         if #available(macOS 26.0, *), let glassView = effectView as? NSGlassEffectView {
             glassView.cornerRadius = cornerRadius
         }
     }
+
+    private func updateShadowPath() {
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        layer?.shadowPath = CGPath(
+            roundedRect: bounds,
+            cornerWidth: cornerRadius,
+            cornerHeight: cornerRadius,
+            transform: nil
+        )
+    }
+
 }
 
 extension View {

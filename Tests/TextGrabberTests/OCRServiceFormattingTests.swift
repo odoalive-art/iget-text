@@ -36,6 +36,28 @@ final class OCRServiceFormattingTests: XCTestCase {
         XCTAssertEqual(optimizedText, "1. 第一项\n2. 第二项")
     }
 
+    func testReadingOptimizedTextRestoresConsecutiveNumberedMarkers() {
+        let lines = [
+            OCRLayoutLine(text: "1 第一项", confidence: 0.9, boundingBox: CGRect(x: 0.10, y: 0.62, width: 0.24, height: 0.05)),
+            OCRLayoutLine(text: "2 第二项", confidence: 0.9, boundingBox: CGRect(x: 0.10, y: 0.54, width: 0.24, height: 0.05))
+        ]
+
+        let optimizedText = OCRService.makeReadingOptimizedText(from: lines)
+
+        XCTAssertEqual(optimizedText, "1. 第一项\n2. 第二项")
+    }
+
+    func testReadingOptimizedTextRestoresCircledAndVariantBulletMarkers() {
+        let lines = [
+            OCRLayoutLine(text: "① 第一项", confidence: 0.9, boundingBox: CGRect(x: 0.10, y: 0.62, width: 0.24, height: 0.05)),
+            OCRLayoutLine(text: "○ 第二项", confidence: 0.9, boundingBox: CGRect(x: 0.10, y: 0.54, width: 0.24, height: 0.05))
+        ]
+
+        let optimizedText = OCRService.makeReadingOptimizedText(from: lines)
+
+        XCTAssertEqual(optimizedText, "1. 第一项\n• 第二项")
+    }
+
     func testReadingOptimizedTextSeparatesParagraphsWithSingleLineBreak() {
         let lines = [
             OCRLayoutLine(text: "这是第一段第一行", confidence: 0.9, boundingBox: CGRect(x: 0.12, y: 0.78, width: 0.70, height: 0.05)),

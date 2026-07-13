@@ -67,8 +67,9 @@ struct OCRService {
                     return nil
                 }
 
-                let text = candidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !text.isEmpty else { return nil }
+                guard let text = sanitizedObservationText(candidate.string) else {
+                    return nil
+                }
                 return (text, candidate.confidence, observation.boundingBox)
             }
             .sorted { lhs, rhs in
@@ -107,11 +108,13 @@ struct OCRService {
     static func makeReadingOptimizedText(from lines: [OCRLayoutLine]) -> String {
         guard !lines.isEmpty else { return "" }
 
-        let averageLineHeight = lines.map { $0.boundingBox.height }.reduce(0, +) / CGFloat(lines.count)
-        var paragraphs: [String] = []
-        var currentParagraph = lines[0].text
+        let restoredLines = restoreSequenceMarkers(in: lines)
 
-        for (current, next) in zip(lines, lines.dropFirst()) {
+        let averageLineHeight = restoredLines.map { $0.boundingBox.height }.reduce(0, +) / CGFloat(restoredLines.count)
+        var paragraphs: [String] = []
+        var currentParagraph = restoredLines[0].text
+
+        for (current, next) in zip(restoredLines, restoredLines.dropFirst()) {
             if shouldMergeLine(current, withNextLine: next, averageLineHeight: averageLineHeight) {
                 currentParagraph = mergeLineText(currentParagraph, with: next.text)
             } else {
@@ -186,6 +189,96 @@ struct OCRLayoutLine: Sendable {
     let text: String
     let confidence: Float
     let boundingBox: CGRect
+}
+
+private func sanitizedObservationText(_ text: String) -> String? {
+    let decorativeSymbols = CharacterSet(charactersIn: "□■▢▣▤▥▦▧▨▩☐☑☒✓✔✕✖✗✘✚✦✧★☆◇◆◈◉◎◌◍◐◑◒◓◔◕◖◗◘◙◚◛◜◝◞◟☰⚙🔊🔉🔈")
+    let scalars = text.precomposedStringWithCompatibilityMapping.unicodeScalars
+        .filter { !decorativeSymbols.contains($0) }
+    let cleaned = String(String.UnicodeScalarView(scalars))
+        .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+    guard !cleaned.isEmpty else { return nil }
+    if isStandaloneSequenceMarker(cleaned) {
+        return cleaned
+    }
+
+    guard cleaned.unicodeScalars.contains(where: CharacterSet.alphanumerics.contains) else {
+        return nil
+    }
+    return cleaned
+}
+
+private func isStandaloneSequenceMarker(_ text: String) -> Bool {
+    text.range(of: #"^\s*(?:[-•·]|\d+[.)、])\s*$"#, options: .regularExpression) != nil
+}
+
+private func restoreSequenceMarkers(in lines: [OCRLayoutLine]) -> [OCRLayoutLine] {
+    guard !lines.isEmpty else { return [] }
+
+    var indexesInNumberedSequence = Set<Int>()
+    for index in lines.indices.dropLast() {
+        guard
+            let current = leadingUnpunctuatedNumber(in: lines[index].text.precomposedStringWithCompatibilityMapping),
+            let next = leadingUnpunctuatedNumber(in: lines[index + 1].text.precomposedStringWithCompatibilityMapping),
+            next.number == current.number + 1,
+            abs(lines[index].boundingBox.minX - lines[index + 1].boundingBox.minX) < 0.08
+        else {
+            continue
+        }
+
+        indexesInNumberedSequence.insert(index)
+        indexesInNumberedSequence.insert(index + 1)
+    }
+
+    return lines.enumerated().map { index, line in
+        let sourceText = normalizeBulletMarker(in: line.text)
+        let normalizedText = sourceText.precomposedStringWithCompatibilityMapping
+        let restoredText: String
+        if let sequence = leadingCircledNumber(in: sourceText) {
+            restoredText = "\(sequence.number). \(sequence.body)"
+        } else if indexesInNumberedSequence.contains(index), let sequence = leadingUnpunctuatedNumber(in: normalizedText) {
+            restoredText = "\(sequence.number). \(sequence.body)"
+        } else {
+            restoredText = normalizedText
+        }
+
+        return OCRLayoutLine(
+            text: restoredText,
+            confidence: line.confidence,
+            boundingBox: line.boundingBox
+        )
+    }
+}
+
+private func leadingUnpunctuatedNumber(in text: String) -> (number: Int, body: String)? {
+    let components = text.split(maxSplits: 1, whereSeparator: { $0.isWhitespace })
+    guard components.count == 2, let number = Int(components[0]) else { return nil }
+
+    let body = String(components[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !body.isEmpty else { return nil }
+    return (number, body)
+}
+
+private func leadingCircledNumber(in text: String) -> (number: Int, body: String)? {
+    let circledNumbers: [Character: Int] = [
+        "①": 1, "②": 2, "③": 3, "④": 4, "⑤": 5,
+        "⑥": 6, "⑦": 7, "⑧": 8, "⑨": 9, "⑩": 10
+    ]
+    guard let first = text.first, let number = circledNumbers[first] else { return nil }
+
+    let body = String(text.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !body.isEmpty else { return nil }
+    return (number, body)
+}
+
+private func normalizeBulletMarker(in text: String) -> String {
+    let variants: Set<Character> = ["·", "●", "○", "◦", "▪", "‣"]
+    guard let first = text.first, variants.contains(first) else { return text }
+
+    let body = String(text.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+    return body.isEmpty ? "•" : "• \(body)"
 }
 
 private extension OCRResult {

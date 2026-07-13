@@ -172,7 +172,7 @@ private struct ResultPopoverDebugPanelView: View {
                 )
                 .frame(width: ResultPopoverLayout.width, height: previewHeight)
                 .clipShape(RoundedRectangle(cornerRadius: ResultPopoverLayout.cornerRadius, style: .continuous))
-                .shadow(color: .black.opacity(0.08), radius: 18, y: 10)
+                .shadow(color: .black.opacity(0.15), radius: 10, y: 5)
             }
 
             Spacer()

@@ -35,6 +35,9 @@ struct ResultPopoverView: View {
             onClose: coordinator.closePopover,
             onOpenScreenRecordingPreferences: coordinator.openScreenRecordingPreferences
         )
+        .padding(.top, ResultPopoverShadowCanvas.topInset)
+        .padding(.horizontal, ResultPopoverShadowCanvas.horizontalInset)
+        .padding(.bottom, ResultPopoverShadowCanvas.bottomInset)
     }
 
     private var displayState: ResultPopoverDisplayState {

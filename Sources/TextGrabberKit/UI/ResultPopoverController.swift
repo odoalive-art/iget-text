@@ -176,6 +176,10 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
     }
 
     private func currentPanelSize() -> NSSize {
+        ResultPopoverShadowCanvas.size(for: currentSurfaceSize())
+    }
+
+    private func currentSurfaceSize() -> NSSize {
         if coordinator.popoverState == .result || coordinator.popoverState == .idle {
             return NSSize(
                 width: ResultPopoverLayout.width,
@@ -303,8 +307,9 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
         let buttonRectOnScreen = button.window?.convertToScreen(buttonRectInWindow) ?? .zero
         let visibleFrame = button.window?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
 
-        let width = panel.frame.width
-        let height = panel.frame.height
+        let surfaceSize = currentSurfaceSize()
+        let width = surfaceSize.width
+        let height = surfaceSize.height
         let margin: CGFloat = 8
 
         var originX = buttonRectOnScreen.midX - (width / 2)
@@ -315,18 +320,21 @@ final class ResultPopoverController: NSObject, NSWindowDelegate {
             originY = visibleFrame.minY + margin
         }
 
-        return NSRect(x: originX, y: originY, width: width, height: height)
+        return ResultPopoverShadowCanvas.frame(
+            for: NSRect(x: originX, y: originY, width: width, height: height)
+        )
     }
 
     private func mouseFollowPanelFrame() -> NSRect {
         let anchorLocation = anchorState.resolvedMouseLocation(currentMouseLocation: NSEvent.mouseLocation)
         let screen = NSScreen.screens.first(where: { NSMouseInRect(anchorLocation, $0.frame, false) }) ?? NSScreen.main
         let visibleFrame = screen?.visibleFrame ?? .zero
-        return ResultPanelPlacementGeometry.mouseFollowPanelFrame(
+        let surfaceFrame = ResultPanelPlacementGeometry.mouseFollowPanelFrame(
             anchorLocation: anchorLocation,
             visibleFrame: visibleFrame,
-            panelSize: panel.frame.size
+            panelSize: currentSurfaceSize()
         )
+        return ResultPopoverShadowCanvas.frame(for: surfaceFrame)
     }
 
     private func currentTranslationDisplayText() -> String? {
@@ -441,7 +449,7 @@ private final class ResultFloatingPanel: NSWindow {
 
         isReleasedWhenClosed = false
         isOpaque = false
-        hasShadow = true
+        hasShadow = false
         backgroundColor = .clear
         level = .statusBar
         collectionBehavior = [.transient, .moveToActiveSpace]
