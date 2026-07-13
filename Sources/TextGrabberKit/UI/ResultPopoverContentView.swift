@@ -596,7 +596,7 @@ struct ResultPopoverContentView: View {
                 Text("Apple Translate")
                     .font(.system(size: 12, weight: .medium))
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.primary)
 
             if let translationDisplayText = currentTranslationDisplayText {
                 ScrollView(.vertical) {
@@ -618,11 +618,7 @@ struct ResultPopoverContentView: View {
     }
 
     private var translationDisplayColor: Color {
-        if resultState.translationErrorMessage != nil {
-            return Color(nsColor: .labelColor)
-        }
-
-        return Color(nsColor: .secondaryLabelColor)
+        .primary
     }
 
     @ViewBuilder
@@ -888,7 +884,7 @@ private struct ResultTextEditor: NSViewRepresentable {
         textView.isSelectable = true
         textView.drawsBackground = false
         textView.backgroundColor = .clear
-        textView.textColor = .labelColor
+        textView.textColor = .textColor
         textView.font = .systemFont(ofSize: ResultPopoverLayout.resultTextFontSize, weight: .regular)
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
@@ -906,7 +902,7 @@ private struct ResultTextEditor: NSViewRepresentable {
         textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.lineFragmentPadding = 1
         textView.textContainer?.lineBreakMode = .byWordWrapping
-        textView.insertionPointColor = .labelColor
+        textView.insertionPointColor = .textColor
         applyParagraphStyle(to: textView)
         scrollView.documentView = textView
 
@@ -947,7 +943,7 @@ private struct ResultTextEditor: NSViewRepresentable {
         textView.textStorage?.setAttributes(
             [
                 .font: NSFont.systemFont(ofSize: ResultPopoverLayout.resultTextFontSize, weight: .regular),
-                .foregroundColor: NSColor.labelColor,
+                .foregroundColor: NSColor.textColor,
                 .paragraphStyle: paragraphStyle
             ],
             range: NSRange(location: 0, length: textView.textStorage?.length ?? 0)

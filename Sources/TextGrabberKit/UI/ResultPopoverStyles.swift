@@ -17,8 +17,8 @@ enum ResultPopoverLayout {
     static let previewCornerRadius: CGFloat = 12
     static let contentCardHeight: CGFloat = 200
     static let topContentPadding: CGFloat = 0
-    /// 让底部工具栏按钮的圆心位于距底部 24pt 处：24 - 工具栏高度 / 2。
-    static let bottomContentPadding: CGFloat = cornerRadius - (footerHeight / 2)
+    /// 底部工具栏贴合窗口内容边缘。
+    static let bottomContentPadding: CGFloat = 1
     static let sectionSpacing: CGFloat = 10
     static let footerHeight: CGFloat = toolbarHeight
     static let previewVerticalPadding: CGFloat = 0
@@ -28,10 +28,10 @@ enum ResultPopoverLayout {
     static let contentCardTopPadding: CGFloat = 10
     static let contentCardBottomPadding: CGFloat = 10
     static let contentCardInnerHorizontalPadding: CGFloat = 10
-    static let resultTextFontSize: CGFloat = 13
-    static let translationTextFontSize: CGFloat = 13
+    static let resultTextFontSize: CGFloat = 14
+    static let translationTextFontSize: CGFloat = 14
     static let resultLineHeight: CGFloat = 19
-    static let translationLineHeight: CGFloat = 16
+    static let translationLineHeight: CGFloat = 18
     static let minimumTextLines: CGFloat = 8
     static let maximumTextLines: CGFloat = 24
     static let minimumTranslationLines: CGFloat = 3

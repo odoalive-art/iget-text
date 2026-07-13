@@ -36,6 +36,29 @@ final class OCRServiceFormattingTests: XCTestCase {
         XCTAssertEqual(optimizedText, "1. 第一项\n2. 第二项")
     }
 
+    func testReadingOptimizedTextKeepsBulletsWithoutFollowingWhitespaceSeparate() {
+        let lines = [
+            OCRLayoutLine(text: "•第一项", confidence: 0.9, boundingBox: CGRect(x: 0.10, y: 0.62, width: 0.24, height: 0.05)),
+            OCRLayoutLine(text: "•第二项", confidence: 0.9, boundingBox: CGRect(x: 0.10, y: 0.54, width: 0.24, height: 0.05))
+        ]
+
+        let optimizedText = OCRService.makeReadingOptimizedText(from: lines)
+
+        XCTAssertEqual(optimizedText, "•第一项\n•第二项")
+    }
+
+    func testReadingOptimizedTextSeparatesParagraphsAfterOnlyTightLineWraps() {
+        let lines = [
+            OCRLayoutLine(text: "第一段第一行", confidence: 0.9, boundingBox: CGRect(x: 0.10, y: 0.60, width: 0.72, height: 0.10)),
+            OCRLayoutLine(text: "第一段第二行", confidence: 0.9, boundingBox: CGRect(x: 0.10, y: 0.476, width: 0.72, height: 0.10)),
+            OCRLayoutLine(text: "第二段第一行", confidence: 0.9, boundingBox: CGRect(x: 0.10, y: 0.338, width: 0.72, height: 0.10))
+        ]
+
+        let optimizedText = OCRService.makeReadingOptimizedText(from: lines)
+
+        XCTAssertEqual(optimizedText, "第一段第一行第一段第二行\n第二段第一行")
+    }
+
     func testReadingOptimizedTextRestoresConsecutiveNumberedMarkers() {
         let lines = [
             OCRLayoutLine(text: "1 第一项", confidence: 0.9, boundingBox: CGRect(x: 0.10, y: 0.62, width: 0.24, height: 0.05)),
