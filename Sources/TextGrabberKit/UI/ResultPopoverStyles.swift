@@ -5,7 +5,7 @@ enum ResultPopoverLayout {
     static let width: CGFloat = 400
     static let height: CGFloat = 483
     static let compactHeight: CGFloat = 360
-    static let cornerRadius: CGFloat = 24
+    static let cornerRadius: CGFloat = 20
     static let iconButtonDiameter: CGFloat = 30
     static let contentCardCornerRadius: CGFloat = 12
     static let toolbarHeight: CGFloat = 44
@@ -375,7 +375,7 @@ final class LiquidGlassContainerView: NSView {
         layer?.cornerRadius = cornerRadius
         layer?.masksToBounds = false
         layer?.borderWidth = 0.5
-        layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+        layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.25).cgColor
         layer?.shadowColor = NSColor.black.cgColor
         layer?.shadowOpacity = 0.15
         layer?.shadowRadius = 10

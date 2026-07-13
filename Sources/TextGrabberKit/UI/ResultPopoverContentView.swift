@@ -129,21 +129,24 @@ struct ResultPopoverContentView: View {
             if let image = capturedPreviewImage {
                 capturedPreview(image)
             } else {
-                RoundedRectangle(cornerRadius: ResultPopoverLayout.previewCornerRadius, style: .continuous)
-                    .fill(.quaternary)
-                    .frame(
-                        width: ResultPopoverLayout.previewWidth,
-                        height: ResultPopoverLayout.previewViewportHeight(for: capturedPreviewImage)
-                    )
-                    .overlay {
-                        VStack(spacing: 6) {
-                            Image(systemName: displayState == .recognizing ? "viewfinder.circle" : "photo")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(.secondary)
-                            Text(displayState == .recognizing ? "截图处理中…" : "暂无截图")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.secondary)
-                        }
+                VStack(spacing: 6) {
+                    Image(systemName: displayState == .recognizing ? "viewfinder.circle" : "photo")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Text(displayState == .recognizing ? "截图处理中…" : "暂无截图")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(
+                    width: ResultPopoverLayout.previewWidth,
+                    height: ResultPopoverLayout.previewViewportHeight(for: capturedPreviewImage)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: ResultPopoverLayout.previewCornerRadius, style: .continuous)
+                        .strokeBorder(
+                            previewBorderColor,
+                            style: StrokeStyle(lineWidth: 1, lineCap: .round, dash: [2, 2])
+                        )
                     }
             }
         }
@@ -266,8 +269,12 @@ struct ResultPopoverContentView: View {
             .fill(.quaternary.opacity(0.5))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(.separator.opacity(0.5), lineWidth: 0.5)
+                    .strokeBorder(resultCardBorderColor, lineWidth: 0.5)
             )
+    }
+
+    private var resultCardBorderColor: Color {
+        Color.black.opacity(0.14)
     }
 
     private var resultTextBlock: some View {
@@ -889,6 +896,10 @@ private struct ResultTextEditor: NSViewRepresentable {
         textView.drawsBackground = false
         textView.backgroundColor = .clear
         textView.textColor = .textColor
+        textView.selectedTextAttributes = [
+            .backgroundColor: NSColor.selectedTextBackgroundColor,
+            .foregroundColor: NSColor.textColor
+        ]
         textView.font = .systemFont(ofSize: ResultPopoverLayout.resultTextFontSize, weight: .regular)
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
@@ -1035,6 +1046,8 @@ private final class FocusableResultTextView: NSTextView {
             selectedRange: selectedRange(),
             previousBlockSelectionRange: lastBlockSelectionRange
         )
+        layoutManager?.ensureGlyphs(forCharacterRange: selection.range)
+        layoutManager?.ensureLayout(forCharacterRange: selection.range)
         usesBlockSelectionAppearance = true
         lastBlockSelectionRange = selection.selectedBlockRange
         setSelectedRange(selection.range)
