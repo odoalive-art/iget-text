@@ -6,16 +6,21 @@ enum ResultPopoverLayout {
     static let height: CGFloat = 483
     static let compactHeight: CGFloat = 360
     static let cornerRadius: CGFloat = 24
+    static let iconButtonDiameter: CGFloat = 30
     static let contentCardCornerRadius: CGFloat = 12
-    static let headerHeight: CGFloat = 48
+    static let toolbarHeight: CGFloat = 44
+    static let headerHeight: CGFloat = toolbarHeight
     static let horizontalInset: CGFloat = 14
-    static let headerTrailingInset: CGFloat = horizontalInset
+    /// 让角落按钮圆心与窗口圆角圆心重合：24 - 30 / 2 = 9。
+    static let cornerActionInset: CGFloat = cornerRadius - (iconButtonDiameter / 2)
+    static let headerTrailingInset: CGFloat = cornerActionInset
     static let previewCornerRadius: CGFloat = 12
     static let contentCardHeight: CGFloat = 200
     static let topContentPadding: CGFloat = 0
-    static let bottomContentPadding: CGFloat = 12
+    /// 让底部工具栏按钮的圆心位于距底部 24pt 处：24 - 工具栏高度 / 2。
+    static let bottomContentPadding: CGFloat = cornerRadius - (footerHeight / 2)
     static let sectionSpacing: CGFloat = 10
-    static let footerHeight: CGFloat = 32
+    static let footerHeight: CGFloat = toolbarHeight
     static let previewVerticalPadding: CGFloat = 0
     static let previewWidthRatio: CGFloat = 1.0
     static let previewMaxHeight: CGFloat = 180
@@ -36,9 +41,9 @@ enum ResultPopoverLayout {
     static let translationCardBottomPadding: CGFloat = 10
     static let translationCardHorizontalPadding: CGFloat = 10
     static let translationHeaderHeight: CGFloat = 16
-    static let bodyParagraphSpacing: CGFloat = 6
-    static let readingOptimizedParagraphSpacing: CGFloat = 6
-    static let translationParagraphSpacing: CGFloat = 6
+    static let bodyParagraphSpacing: CGFloat = 10
+    static let readingOptimizedParagraphSpacing: CGFloat = 10
+    static let translationParagraphSpacing: CGFloat = 10
 
     static var contentWidth: CGFloat {
         width - (horizontalInset * 2)
@@ -242,7 +247,6 @@ enum ResultPopoverLayout {
                 showsTranslationPane: showsTranslationPane,
                 outputMode: outputMode
             ) +
-            sectionSpacing +
             footerHeight +
             bottomContentPadding
     }

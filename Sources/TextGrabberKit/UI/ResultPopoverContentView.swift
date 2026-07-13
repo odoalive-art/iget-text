@@ -33,6 +33,7 @@ struct ResultPopoverContentView: View {
     @State private var translationRequestToken = 0
     @State private var prewarmPlan: TranslationPlan?
     @State private var translationPlan: TranslationPlan?
+    @State private var activeTooltip: TooltipPresentation?
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -62,20 +63,26 @@ struct ResultPopoverContentView: View {
                 header
                     .zIndex(1)
 
-                VStack(spacing: 10) {
+                VStack(spacing: 0) {
                     if !usesCompactTextLayout {
                         previewPane
+                            .padding(.bottom, ResultPopoverLayout.sectionSpacing)
                     }
 
                     contentCard
 
                     footer
+                        .frame(height: ResultPopoverLayout.footerHeight)
+                        .padding(.horizontal, -(ResultPopoverLayout.horizontalInset - ResultPopoverLayout.cornerActionInset))
                 }
                 .padding(.horizontal, ResultPopoverLayout.horizontalInset)
                 .padding(.top, ResultPopoverLayout.topContentPadding)
                 .padding(.bottom, ResultPopoverLayout.bottomContentPadding)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .overlay(alignment: .topLeading) {
+            tooltipOverlay
         }
         .background(prewarmTranslationTaskBridge)
         .background(translationTaskBridge)
@@ -89,21 +96,23 @@ struct ResultPopoverContentView: View {
 
             Spacer()
 
-            HStack(spacing: 8) {
+            HStack(spacing: 4) {
                 LightIconButton(
                     symbol: isPinned ? "pin.fill" : "pin",
                     accessibilityLabel: isPinned ? "取消固定窗口" : "固定窗口",
                     isSelected: isPinned,
                     usesCapsule: true,
-                    tooltipPlacement: .below,
                     iconRotation: .degrees(45),
+                    tooltipTarget: .pin,
+                    onTooltipVisibilityChange: updateActiveTooltip,
                     action: onTogglePin
                 )
                 LightIconButton(
                     symbol: "gearshape",
                     accessibilityLabel: "设置",
                     usesCapsule: true,
-                    tooltipPlacement: .below,
+                    tooltipTarget: .settings,
+                    onTooltipVisibilityChange: updateActiveTooltip,
                     action: onShowSettings
                 )
             }
@@ -348,17 +357,21 @@ struct ResultPopoverContentView: View {
                 symbol: "arrow.clockwise",
                 accessibilityLabel: "重新识别",
                 usesCapsule: true,
+                tooltipTarget: .retry,
+                onTooltipVisibilityChange: updateActiveTooltip,
                 action: onRetry
             )
             .disabled(displayState == .recognizing)
 
             Spacer(minLength: 0)
 
-            HStack(spacing: 8) {
+            HStack(spacing: 4) {
                 LightIconButton(
                     symbol: "globe",
                     accessibilityLabel: "翻译",
                     usesCapsule: true,
+                    tooltipTarget: .translate,
+                    onTooltipVisibilityChange: updateActiveTooltip,
                     action: presentSystemTranslation
                 )
                 .disabled(!canTranslateCurrentText)
@@ -367,6 +380,8 @@ struct ResultPopoverContentView: View {
                     symbol: "square.on.square",
                     accessibilityLabel: "拷贝文本",
                     usesCapsule: true,
+                    tooltipTarget: .copy,
+                    onTooltipVisibilityChange: updateActiveTooltip,
                     action: onCopy
                 )
                 .disabled(recognizedText.isEmpty || displayState != .result)
@@ -417,6 +432,26 @@ struct ResultPopoverContentView: View {
 
     private var usesCompactTextLayout: Bool {
         placementMode == .followMouse && displayState == .result
+    }
+
+    @ViewBuilder
+    private var tooltipOverlay: some View {
+        GeometryReader { proxy in
+            if let activeTooltip {
+                TooltipBubble(title: activeTooltip.title)
+                    .fixedSize()
+                    .position(
+                        x: activeTooltip.target.centerX(in: proxy.size),
+                        y: activeTooltip.target.centerY(in: proxy.size)
+                    )
+            }
+        }
+        .allowsHitTesting(false)
+        .zIndex(2)
+    }
+
+    private func updateActiveTooltip(_ tooltip: TooltipPresentation?) {
+        activeTooltip = tooltip
     }
 
     private var translationSourceText: String {
@@ -644,9 +679,38 @@ struct ResultPopoverContentView: View {
     }
 }
 
-private enum TooltipPlacement {
-    case above
-    case below
+private enum TooltipTarget {
+    case pin
+    case settings
+    case retry
+    case translate
+    case copy
+
+    func centerX(in size: CGSize) -> CGFloat {
+        let trailingButtonCenter = size.width - ResultPopoverLayout.cornerActionInset - (ResultPopoverLayout.iconButtonDiameter / 2)
+        return switch self {
+        case .settings, .copy:
+            trailingButtonCenter
+        case .pin, .translate:
+            trailingButtonCenter - ResultPopoverLayout.iconButtonDiameter - 4
+        case .retry:
+            ResultPopoverLayout.cornerActionInset + (ResultPopoverLayout.iconButtonDiameter / 2)
+        }
+    }
+
+    func centerY(in size: CGSize) -> CGFloat {
+        return switch self {
+        case .pin, .settings:
+            ResultPopoverLayout.headerHeight + 10
+        case .retry, .translate, .copy:
+            size.height - ResultPopoverLayout.footerHeight - ResultPopoverLayout.bottomContentPadding - 10
+        }
+    }
+}
+
+private struct TooltipPresentation {
+    let title: String
+    let target: TooltipTarget
 }
 
 private struct LightIconButton: View {
@@ -656,14 +720,14 @@ private struct LightIconButton: View {
     var bouncesOnTap: Bool = false
     var standalone: Bool = true
     var usesCapsule: Bool = false
-    var tooltipPlacement: TooltipPlacement = .above
     var iconRotation: Angle = .zero
+    var tooltipTarget: TooltipTarget?
+    var onTooltipVisibilityChange: ((TooltipPresentation?) -> Void)?
     let action: () -> Void
 
     @Environment(\.isEnabled) private var isEnabled
     @State private var isHovering = false
     @State private var bounceValue = 0
-    @State private var isTooltipVisible = false
     @State private var tooltipRequestToken = 0
 
     var body: some View {
@@ -675,57 +739,53 @@ private struct LightIconButton: View {
         } label: {
             iconImage
                 .symbolEffect(.bounce, value: bounceValue)
-                .frame(width: 30, height: 30)
+                .frame(
+                    width: ResultPopoverLayout.iconButtonDiameter,
+                    height: ResultPopoverLayout.iconButtonDiameter
+                )
                 .background { buttonBackground }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .opacity(isEnabled ? 1 : 0.4)
         .accessibilityLabel(Text(accessibilityLabel))
-        .overlay(alignment: tooltipPlacement == .above ? .top : .bottom) {
-            if isTooltipVisible {
-                TooltipBubble(title: accessibilityLabel)
-                    .offset(y: tooltipPlacement == .above ? -28 : 28)
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
-            }
-        }
         .onHover { isHovering = $0; updateTooltipVisibility(for: $0) }
         .onDisappear {
             tooltipRequestToken += 1
-            isTooltipVisible = false
+            onTooltipVisibilityChange?(nil)
         }
-        .animation(.easeOut(duration: 0.12), value: isTooltipVisible)
     }
 
     private func updateTooltipVisibility(for isHovering: Bool) {
         tooltipRequestToken += 1
         let requestToken = tooltipRequestToken
-        isTooltipVisible = false
+        onTooltipVisibilityChange?(nil)
 
-        guard isHovering else { return }
+        guard isHovering, let tooltipTarget else { return }
 
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(500))
             guard requestToken == tooltipRequestToken, self.isHovering else { return }
-            isTooltipVisible = true
+            onTooltipVisibilityChange?(TooltipPresentation(title: accessibilityLabel, target: tooltipTarget))
         }
     }
 
     @ViewBuilder
     private var buttonBackground: some View {
         if standalone {
-            if usesCapsule {
-                Capsule()
-                    .fill(backgroundFill)
-                    .overlay(Capsule().strokeBorder(.primary.opacity(0.06), lineWidth: 0.5))
-            } else {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(backgroundFill)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(.primary.opacity(0.06), lineWidth: 0.5)
-                    )
+            if isSelected || (isHovering && isEnabled) {
+                if usesCapsule {
+                    Capsule()
+                        .fill(backgroundFill)
+                        .overlay(Capsule().strokeBorder(.primary.opacity(0.06), lineWidth: 0.5))
+                } else {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(backgroundFill)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder(.primary.opacity(0.06), lineWidth: 0.5)
+                        )
+                }
             }
         } else if isSelected {
             Circle().fill(.primary.opacity(0.16))
@@ -751,7 +811,7 @@ private struct LightIconButton: View {
             .frame(width: 14, height: 14)
             .rotationEffect(iconRotation)
             .symbolRenderingMode(.monochrome)
-            .foregroundStyle(Color.secondary)
+            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
     }
 }
 

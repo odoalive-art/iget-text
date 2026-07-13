@@ -82,6 +82,30 @@ final class ResultPopoverLayoutTests: XCTestCase {
         XCTAssertGreaterThan(translatedHeight, baseHeight)
     }
 
+    func testTranslationPanelKeepsFooterAtFixedHeightWithoutExtraGap() {
+        let sourceText = "原始文本"
+        let translatedText = "Translated text"
+
+        let expectedHeight = ResultPopoverLayout.headerHeight +
+            ResultPopoverLayout.resultCardHeight(
+                for: sourceText,
+                translationText: translatedText,
+                showsTranslationPane: true
+            ) +
+            ResultPopoverLayout.footerHeight +
+            ResultPopoverLayout.bottomContentPadding
+
+        let actualHeight = ResultPopoverLayout.resultPanelHeight(
+            text: sourceText,
+            translationText: translatedText,
+            showsTranslationPane: true,
+            image: nil,
+            includePreview: false
+        )
+
+        XCTAssertEqual(actualHeight, expectedHeight)
+    }
+
     func testShortTranslationAddsDedicatedTranslationCardHeight() {
         let sourceText = "短文本"
         let translatedText = "Short text"
