@@ -178,6 +178,8 @@ enum ResultPopoverLayout {
     static func resultPrimaryCardHeight(for text: String, outputMode: OCRTextOutputMode = .readingOptimized) -> CGFloat {
         let textHeight = visibleResultTextHeight(for: text, outputMode: outputMode)
         return contentCardTopPadding +
+            translationHeaderHeight +
+            translationCardSpacing +
             textHeight +
             contentCardBottomPadding
     }

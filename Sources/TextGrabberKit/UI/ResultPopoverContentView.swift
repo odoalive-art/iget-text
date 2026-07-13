@@ -259,7 +259,11 @@ struct ResultPopoverContentView: View {
     }
 
     private var primaryResultCard: some View {
-        resultTextBlock
+        VStack(alignment: .leading, spacing: ResultPopoverLayout.translationCardSpacing) {
+            moduleSectionHeader(symbol: "text.alignleft", title: "识别结果")
+
+            resultTextBlock
+        }
             .padding(.top, ResultPopoverLayout.contentCardTopPadding)
             .padding(.horizontal, ResultPopoverLayout.contentCardInnerHorizontalPadding)
             .padding(.bottom, ResultPopoverLayout.contentCardBottomPadding)
@@ -627,13 +631,7 @@ struct ResultPopoverContentView: View {
 
     private var translationCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 4) {
-                Image(systemName: "translate")
-                    .font(.system(size: 11, weight: .semibold))
-                Text("Apple Translate")
-                    .font(.system(size: 12, weight: .medium))
-            }
-            .foregroundStyle(.primary)
+            moduleSectionHeader(symbol: "translate", title: "Apple Translate")
 
             if let translationDisplayText = currentTranslationDisplayText {
                 ScrollView(.vertical) {
@@ -652,6 +650,18 @@ struct ResultPopoverContentView: View {
         .padding(.horizontal, ResultPopoverLayout.translationCardHorizontalPadding)
         .padding(.bottom, ResultPopoverLayout.translationCardBottomPadding)
         .background(resultCardBackground)
+    }
+
+    private func moduleSectionHeader(symbol: String, title: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .semibold))
+                .frame(width: 16, height: ResultPopoverLayout.translationHeaderHeight)
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+        }
+        .foregroundStyle(.secondary)
+        .frame(height: ResultPopoverLayout.translationHeaderHeight)
     }
 
     private var translationDisplayColor: Color {
