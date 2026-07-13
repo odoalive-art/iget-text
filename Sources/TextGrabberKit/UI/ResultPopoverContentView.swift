@@ -84,8 +84,8 @@ struct ResultPopoverContentView: View {
     private var header: some View {
         HStack(spacing: 0) {
             Text("截图识别")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.primary)
 
             Spacer()
 
@@ -96,6 +96,7 @@ struct ResultPopoverContentView: View {
                     isSelected: isPinned,
                     usesCapsule: true,
                     tooltipPlacement: .below,
+                    iconRotation: .degrees(45),
                     action: onTogglePin
                 )
                 LightIconButton(
@@ -151,9 +152,13 @@ struct ResultPopoverContentView: View {
 
         Group {
             if ResultPopoverLayout.previewIsScrollable(for: image) {
-                ScrollView(.vertical, showsIndicators: true) {
-                    previewImageContent(image, height: naturalHeight)
-                }
+                NonElasticPreviewScrollView(
+                    image: image,
+                    contentSize: NSSize(
+                        width: ResultPopoverLayout.previewWidth,
+                        height: naturalHeight
+                    )
+                )
                 .frame(width: ResultPopoverLayout.previewWidth, height: viewportHeight)
             } else {
                 previewImageContent(image, height: naturalHeight)
@@ -248,7 +253,7 @@ struct ResultPopoverContentView: View {
 
     private var resultCardBackground: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(.quaternary)
+            .fill(.quaternary.opacity(0.5))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(.separator.opacity(0.5), lineWidth: 0.5)
@@ -553,17 +558,21 @@ struct ResultPopoverContentView: View {
             HStack(spacing: 4) {
                 Image(systemName: "translate")
                     .font(.system(size: 11, weight: .semibold))
-                Text("翻译结果")
+                Text("Apple Translate")
                     .font(.system(size: 12, weight: .medium))
             }
             .foregroundStyle(.secondary)
 
             if let translationDisplayText = currentTranslationDisplayText {
-                ScrollView(.vertical, showsIndicators: translationNeedsScrolling) {
+                ScrollView(.vertical) {
                     translationTextBlock(translationDisplayText)
-                        .padding(.trailing, 2)
+                        .padding(.leading, 10)
+                        .padding(.trailing, 12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .scrollIndicators(.automatic, axes: .vertical)
+                .scrollIndicators(.hidden, axes: .horizontal)
+                .padding(.horizontal, -10)
                 .frame(height: visibleTranslationTextHeight)
             }
         }
@@ -586,7 +595,7 @@ struct ResultPopoverContentView: View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(Array(ResultPopoverLayout.paragraphDisplayLines(from: text).enumerated()), id: \.offset) { _, paragraph in
                 Text(paragraph)
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.system(size: ResultPopoverLayout.translationTextFontSize, weight: .regular))
                     .foregroundStyle(translationDisplayColor)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -597,20 +606,6 @@ struct ResultPopoverContentView: View {
 
     private var visibleTranslationTextHeight: CGFloat {
         ResultPopoverLayout.visibleTranslationTextHeight(for: currentTranslationDisplayText)
-    }
-
-    private var translationNeedsScrolling: Bool {
-        guard let translationDisplayText = currentTranslationDisplayText else {
-            return false
-        }
-
-        let measuredHeight = ResultPopoverLayout.measuredTextHeight(
-            for: ResultPopoverLayout.normalizedParagraphText(translationDisplayText),
-            width: ResultPopoverLayout.translationTextWidth,
-            paragraphSpacing: ResultPopoverLayout.translationParagraphSpacing
-        )
-
-        return measuredHeight > visibleTranslationTextHeight
     }
 
     @ViewBuilder
@@ -662,6 +657,7 @@ private struct LightIconButton: View {
     var standalone: Bool = true
     var usesCapsule: Bool = false
     var tooltipPlacement: TooltipPlacement = .above
+    var iconRotation: Angle = .zero
     let action: () -> Void
 
     @Environment(\.isEnabled) private var isEnabled
@@ -753,6 +749,7 @@ private struct LightIconButton: View {
             .resizable()
             .scaledToFit()
             .frame(width: 14, height: 14)
+            .rotationEffect(iconRotation)
             .symbolRenderingMode(.monochrome)
             .foregroundStyle(Color.secondary)
     }
@@ -770,6 +767,38 @@ private struct TooltipBubble: View {
             .padding(.vertical, 5)
             .background(Color(nsColor: .controlBackgroundColor), in: Capsule())
             .overlay(Capsule().strokeBorder(.separator, lineWidth: 0.5))
+    }
+}
+
+/// 长截图使用原生滚动容器，以关闭到达边界时的弹性回弹。
+private struct NonElasticPreviewScrollView: NSViewRepresentable {
+    let image: NSImage
+    let contentSize: NSSize
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.scrollerStyle = .overlay
+        scrollView.verticalScrollElasticity = .none
+        scrollView.horizontalScrollElasticity = .none
+
+        let imageView = NSImageView(frame: NSRect(origin: .zero, size: contentSize))
+        imageView.image = image
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.imageAlignment = .alignCenter
+        scrollView.documentView = imageView
+
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let imageView = scrollView.documentView as? NSImageView else { return }
+        imageView.image = image
+        imageView.frame = NSRect(origin: .zero, size: contentSize)
     }
 }
 

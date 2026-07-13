@@ -2,14 +2,14 @@ import AppKit
 import SwiftUI
 
 enum ResultPopoverLayout {
-    static let width: CGFloat = 360
+    static let width: CGFloat = 400
     static let height: CGFloat = 483
     static let compactHeight: CGFloat = 360
     static let cornerRadius: CGFloat = 24
     static let contentCardCornerRadius: CGFloat = 12
     static let headerHeight: CGFloat = 48
     static let horizontalInset: CGFloat = 14
-    static let headerTrailingInset: CGFloat = 6
+    static let headerTrailingInset: CGFloat = horizontalInset
     static let previewCornerRadius: CGFloat = 12
     static let contentCardHeight: CGFloat = 200
     static let topContentPadding: CGFloat = 0
@@ -24,7 +24,7 @@ enum ResultPopoverLayout {
     static let contentCardBottomPadding: CGFloat = 10
     static let contentCardInnerHorizontalPadding: CGFloat = 10
     static let resultTextFontSize: CGFloat = 13
-    static let translationTextFontSize: CGFloat = 12
+    static let translationTextFontSize: CGFloat = 13
     static let resultLineHeight: CGFloat = 19
     static let translationLineHeight: CGFloat = 16
     static let minimumTextLines: CGFloat = 8
