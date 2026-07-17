@@ -30,10 +30,8 @@ struct ResultPopoverContentView: View {
     let onClose: () -> Void
     let onOpenScreenRecordingPreferences: () -> Void
     @State private var isTranslationAvailabilityAlertPresented = false
-    @State private var prewarmRequestToken = 0
     @State private var translationRequestToken = 0
-    @State private var prewarmPlan: TranslationPlan?
-    @State private var translationPlan: TranslationPlan?
+    @State private var translationTaskRequest: TranslationTaskRequest?
     @State private var activeTooltip: TooltipPresentation?
     @State private var isCopyConfirmationVisible = false
     @State private var copyConfirmationToken = 0
@@ -50,7 +48,7 @@ struct ResultPopoverContentView: View {
                 refreshSystemTranslationPrewarm()
             }
             .onChange(of: translationSourceText) { _, _ in
-                translationPlan = nil
+                translationTaskRequest = nil
                 resultState.resetTranslation()
                 refreshSystemTranslationPrewarm()
             }
@@ -94,7 +92,6 @@ struct ResultPopoverContentView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
             }
         }
-        .background(prewarmTranslationTaskBridge)
         .background(translationTaskBridge)
     }
 
@@ -538,25 +535,37 @@ struct ResultPopoverContentView: View {
     }
 
     private func refreshSystemTranslationPrewarm() {
-        guard #available(macOS 15.0, *) else {
-            prewarmPlan = nil
-            return
-        }
+#if canImport(Translation)
+        guard #available(macOS 15.0, *) else { return }
+
+        // 正在翻译时不抢占会话:当前 translationTask 由正式翻译请求占用。
+        guard !resultState.isTranslating else { return }
 
         let service = SystemTranslationService()
-        guard let plan = service.makePlan(for: translationSourceText) else {
-            prewarmPlan = nil
+        guard let plan = service.makePlan(for: translationSourceText),
+              let sourceLanguage = plan.sourceLanguage else {
             return
         }
+        let targetLanguage = plan.targetLanguage
+        let sourceTextSnapshot = translationSourceText
 
-        prewarmPlan = plan
-        prewarmRequestToken += 1
+        Task { @MainActor in
+            // 仅在语言包已安装时预热,避免未安装时预热主动弹出系统下载框。
+            let status = await LanguageAvailability().status(from: sourceLanguage, to: targetLanguage)
+            guard status == .installed else { return }
+            // 期间文本变化或已进入正式翻译,则放弃这次预热,避免抢占会话。
+            guard !resultState.isTranslating, translationSourceText == sourceTextSnapshot else { return }
+
+            translationTaskRequest = TranslationTaskRequest(plan: plan, performsTranslation: false)
+            translationRequestToken += 1
+        }
+#endif
     }
 
     private func presentSystemTranslation() {
         if let validationMessage = translationServiceResolver.validationMessage(for: translationSourceText, provider: translationProvider) {
             resultState.failTranslation(validationMessage)
-            translationPlan = nil
+            translationTaskRequest = nil
             return
         }
 
@@ -568,7 +577,7 @@ struct ResultPopoverContentView: View {
         case let .system(plan, service):
             beginSystemTranslation(plan: plan, service: service)
         case let .online(plan, service):
-            translationPlan = nil
+            translationTaskRequest = nil
             resultState.beginTranslation()
             translationRequestToken += 1
             let currentRequestToken = translationRequestToken
@@ -606,7 +615,7 @@ struct ResultPopoverContentView: View {
             return
         }
 
-        translationPlan = plan
+        translationTaskRequest = TranslationTaskRequest(plan: plan, performsTranslation: true)
         resultState.beginTranslation()
         translationRequestToken += 1
         let currentRequestToken = translationRequestToken
@@ -689,11 +698,14 @@ struct ResultPopoverContentView: View {
     @ViewBuilder
     private var translationTaskBridge: some View {
 #if canImport(Translation)
-        if #available(macOS 15.0, *), let translationPlan {
+        if #available(macOS 15.0, *), let translationTaskRequest {
+            // 用 requestToken 作为身份:每次预热/正式翻译请求都重建桥,旧会话随之销毁,
+            // 保证同一时刻只有一个 TranslationSession,消除同语言对会话并发导致的卡死。
             TranslationTaskBridge(
-                plan: translationPlan,
+                plan: translationTaskRequest.plan,
                 translationService: SystemTranslationService(),
                 requestToken: translationRequestToken,
+                performTranslation: translationTaskRequest.performsTranslation,
                 onSuccess: { translatedText in
                     resultState.completeTranslation(translatedText)
                 },
@@ -701,25 +713,16 @@ struct ResultPopoverContentView: View {
                     resultState.failTranslation(message)
                 }
             )
+            .id(translationRequestToken)
         }
 #endif
     }
+}
 
-    @ViewBuilder
-    private var prewarmTranslationTaskBridge: some View {
-#if canImport(Translation)
-        if #available(macOS 15.0, *), let prewarmPlan {
-            TranslationTaskBridge(
-                plan: prewarmPlan,
-                translationService: SystemTranslationService(),
-                requestToken: prewarmRequestToken,
-                performTranslation: false,
-                onSuccess: { _ in },
-                onFailure: { _ in }
-            )
-        }
-#endif
-    }
+/// 单个翻译会话请求:既可能是仅预热(`performsTranslation == false`),也可能是正式翻译。
+struct TranslationTaskRequest: Equatable {
+    let plan: TranslationPlan
+    let performsTranslation: Bool
 }
 
 private enum TooltipTarget {
@@ -1222,7 +1225,10 @@ private struct TranslationTaskBridge: View {
                     }
                     configuration = nil
                 } catch {
-                    onFailure(translationService.message(for: error, plan: plan))
+                    // 仅预热失败不打扰用户(例如后台准备被取消);只有正式翻译才回报错误。
+                    if performTranslation {
+                        onFailure(translationService.message(for: error, plan: plan))
+                    }
                     configuration = nil
                 }
             }

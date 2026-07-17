@@ -28,23 +28,29 @@ Author: Claude
 
 Summary:
 - 修复两个可确定性验证的翻译 Bug：中英混排误判「不支持」、译文按 OCR 换行被拆段
-- 定位另两个翻译 Bug（下载弹窗常驻、翻译偶发卡死）的疑似根因，待真机验证
+- 重构结果面板翻译会话链路，针对下载弹窗常驻、翻译偶发卡死做结构性修复，待真机验证
+
+Changes（会话链路重构）:
+- 将「预热会话」和「正式翻译会话」两个 `.translationTask` 桥合并为单桥，由单一 `translationTaskRequest`（含 `performsTranslation` 标记）驱动，并用 `.id(requestToken)` 让每次请求重建桥，保证同一时刻只有一个 `TranslationSession`，消除同语言对会话并发导致的偶发卡死
+- 预热改为异步先查 `LanguageAvailability().status(from:to:) == .installed`，仅在语言包已安装时预热，不再在未安装时主动触发系统下载弹窗；预热进行中若文本变化或已进入正式翻译则放弃，避免抢占会话
+- `TranslationTaskBridge` 在 `performTranslation == false`（预热）时吞掉失败，不再把预热错误当作翻译错误弹给用户
+- 移除 `prewarmPlan`/`prewarmRequestToken`/`translationPlan` 等分裂状态，统一到 `translationTaskRequest` + `translationRequestToken`
 
 Changes:
 - `SystemTranslationService` 新增 `normalizedSourceText`：按空行拆真实段落，段内 OCR 换行按 CJK 感知合并为一行，`makePlan`/`validationMessage` 统一走此规范化，避免系统翻译逐行翻译把译文拆成多段
 - `scriptPreferredSourceLanguageIdentifier` 在两种文字并存时不再于 hanShare 0.1–0.25 区间返回 nil 回落通用识别器，改为一律解析为受支持语言（汉字≥¼按中文，否则按英文），消除中英混排被误判为不支持语言
 - 为上述修复补 4 项单元测试（换行合并、空行段落保留、少量中文的英文句仍可翻译）
-- 在 todo 标注下载弹窗/卡死两个 Bug 的疑似根因：结果面板出现即预热 `prepareTranslation()` 会主动弹下载框，且预热会话与正式会话对同一语言对并发
-
 Files Modified:
 - `Sources/TextGrabberKit/Services/SystemTranslationService.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverContentView.swift`
 - `Tests/TextGrabberTests/SystemTranslationServiceTests.swift`
 - `docs/todo.md`
 - `docs/dev-log.md`
 
 Notes:
 - `swift build` 通过，`swift test` 57 项全绿（新增 4 项）
-- 下载弹窗与偶发卡死两个 Bug 属系统 `Translation` 框架运行时行为，须在真机上分别验证「已装/未装语言包」两种状态，本机无法复现验证
+- 会话链路重构与预热门控只在本机做了编译 + 单测 + 竞态审查；下载弹窗常驻、偶发卡死属系统 `Translation` 框架运行时行为，须在真机上分别用「已装/未装语言包」两种状态回归，本机无法复现验证
+- 待真机验证的三个点：①未装语言包时打开面板不再自动弹下载框 ②装好语言包后点翻译仍能秒回（预热生效）③重复翻译同一词不再卡住转圈
 
 ## 2026-07-13
 
