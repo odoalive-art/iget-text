@@ -59,6 +59,124 @@ enum OCRTextLayoutRules {
 
         return result.confidenceSummary + textLengthBonus + structureBonus
     }
+
+    /// 在原图、增强图与按需放大图之间选取候选。对于仅末尾少一两字、且置信度接近的行，
+    /// 从较高质量的基准结果中逐行融合完整候选，避免某一无关行的低置信度覆盖正确补全。
+    static func selectBestCandidate(from candidates: [OCRResult]) -> OCRResult? {
+        guard let baseline = candidates.max(by: {
+            qualityScore(for: $0) < qualityScore(for: $1)
+        }) else {
+            return nil
+        }
+
+        var mergedLines = baseline.lines
+        var replacements: [(original: String, replacement: String)] = []
+
+        for index in mergedLines.indices {
+            guard let completion = candidates
+                .filter({ $0.lines.count == mergedLines.count })
+                .map({ $0.lines[index] })
+                .compactMap({ mergedCompletionLine(longer: $0, shorter: mergedLines[index]) })
+                .max(by: { $0.confidence < $1.confidence })
+            else {
+                continue
+            }
+
+            replacements.append((mergedLines[index].text, completion.text))
+            mergedLines[index] = completion
+        }
+
+        guard !replacements.isEmpty else { return baseline }
+
+        var readingOptimizedText = baseline.readingOptimizedText
+        for replacement in replacements {
+            if let range = readingOptimizedText.range(of: replacement.original) {
+                readingOptimizedText.replaceSubrange(range, with: replacement.replacement)
+            }
+        }
+
+        let confidenceSummary = mergedLines.map(\.confidence).reduce(0, +) / Float(mergedLines.count)
+        return OCRResult(
+            rawText: mergedLines.map(\.text).joined(separator: "\n"),
+            readingOptimizedText: readingOptimizedText,
+            lines: mergedLines,
+            confidenceSummary: confidenceSummary
+        )
+    }
+
+    static func shouldRetryWithUpscaledImage(_ candidates: [OCRResult]) -> Bool {
+        candidates.contains { $0.confidenceSummary < 0.82 }
+            || candidates.contains(where: hasShortChineseLabel)
+            || candidates.indices.contains { candidateIndex in
+                candidates.indices.contains { otherIndex in
+                    candidateIndex != otherIndex
+                        && hasLikelyTrailingTruncation(
+                            longer: candidates[candidateIndex],
+                            shorter: candidates[otherIndex]
+                        )
+                }
+            }
+    }
+
+    private static func hasLikelyTrailingTruncation(longer: OCRResult, shorter: OCRResult) -> Bool {
+        guard longer.lines.count == shorter.lines.count, !longer.lines.isEmpty else { return false }
+
+        return zip(longer.lines, shorter.lines).contains {
+            mergedCompletionLine(longer: $0, shorter: $1) != nil
+        }
+    }
+
+    private static func mergedCompletionLine(longer: OCRLine, shorter: OCRLine) -> OCRLine? {
+        let longerText = longer.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let shorterText = shorter.text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if isLikelyTrailingCompletion(longerText, of: shorterText) {
+            guard longer.confidence + 0.04 >= shorter.confidence else { return nil }
+            return longer
+        }
+
+        let longerFields = longerText.split(whereSeparator: \ .isWhitespace).map(String.init)
+        let shorterFields = shorterText.split(whereSeparator: \ .isWhitespace).map(String.init)
+        guard longerFields.count == shorterFields.count, longerFields.count > 1 else { return nil }
+
+        var mergedFields = shorterFields
+        var completionCount = 0
+        for index in mergedFields.indices {
+            if longerFields[index] == shorterFields[index] {
+                continue
+            }
+
+            guard isLikelyTrailingCompletion(longerFields[index], of: shorterFields[index]) else {
+                return nil
+            }
+
+            mergedFields[index] = longerFields[index]
+            completionCount += 1
+        }
+
+        // 同行的另一列会拉低平均置信度；当其余字段完全一致时，以字段一致性作为更可靠的合并依据。
+        guard completionCount == 1, longer.confidence >= 0.5 else { return nil }
+        return OCRLine(text: mergedFields.joined(separator: " "), confidence: max(longer.confidence, shorter.confidence))
+    }
+
+    static func isLikelyTrailingCompletion(_ longerText: String, of shorterText: String) -> Bool {
+        let extraCharacterCount = longerText.count - shorterText.count
+        return shorterText.count >= 2
+            && (1...2).contains(extraCharacterCount)
+            && longerText.hasPrefix(shorterText)
+    }
+
+    private static func hasShortChineseLabel(_ result: OCRResult) -> Bool {
+        result.lines.contains { line in
+            line.text
+                .split(whereSeparator: \ .isWhitespace)
+                .map(String.init)
+                .contains { text in
+                    (2...4).contains(text.count)
+                        && text.unicodeScalars.allSatisfy { (0x4E00...0x9FFF).contains($0.value) }
+                }
+        }
+    }
 }
 
 extension OCRService {

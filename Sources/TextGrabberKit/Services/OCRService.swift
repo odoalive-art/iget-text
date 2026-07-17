@@ -25,12 +25,23 @@ struct OCRService {
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
                     let variants = [image, enhancedImage(from: image) ?? image]
-                    let candidates = try variants.enumerated().map { index, variant in
-                        try performRecognition(on: variant, usesLanguageCorrection: index == 0)
+                    var candidates = try variants.enumerated().map { index, variant in
+                        try performRecognition(
+                            on: variant,
+                            usesLanguageCorrection: index == 0,
+                            allowsLocalizedRefinement: index == 0
+                        )
                     }
-                    var best = candidates.max(by: {
-                        OCRTextLayoutRules.qualityScore(for: $0) < OCRTextLayoutRules.qualityScore(for: $1)
-                    }) ?? OCRResult(rawText: "", readingOptimizedText: "", lines: [], confidenceSummary: 0)
+
+                    if OCRTextLayoutRules.shouldRetryWithUpscaledImage(candidates),
+                       let upscaledImage = upscaledImage(from: image) {
+                        candidates.append(
+                            try performRecognition(on: upscaledImage, usesLanguageCorrection: true)
+                        )
+                    }
+
+                    var best = OCRTextLayoutRules.selectBestCandidate(from: candidates)
+                        ?? OCRResult(rawText: "", readingOptimizedText: "", lines: [], confidenceSummary: 0)
 
                     if best.rawText.isEmpty, !languages.isEmpty {
                         best = try performRecognition(
@@ -51,7 +62,8 @@ struct OCRService {
     private func performRecognition(
         on image: CGImage,
         usesLanguageCorrection: Bool,
-        recognitionLanguages: [String]? = nil
+        recognitionLanguages: [String]? = nil,
+        allowsLocalizedRefinement: Bool = false
     ) throws -> OCRResult {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
@@ -65,10 +77,17 @@ struct OCRService {
         let observations = (request.results ?? [])
             .compactMap { observation -> (String, Float, CGRect)? in
                 guard let candidate = preferredCandidate(from: observation.topCandidates(3)),
-                      let text = OCRTextLayoutRules.sanitizeObservationText(candidate.string)
+                      let recognizedText = OCRTextLayoutRules.sanitizeObservationText(candidate.string)
                 else {
                     return nil
                 }
+                let text = allowsLocalizedRefinement
+                    ? (try? localizedTrailingCompletion(
+                        in: image,
+                        boundingBox: observation.boundingBox,
+                        originalText: recognizedText
+                    )) ?? recognizedText
+                    : recognizedText
                 return (text, candidate.confidence, observation.boundingBox)
             }
             .sorted { lhs, rhs in
@@ -103,17 +122,24 @@ struct OCRService {
         )
     }
 
-    /// 中英文混排时，Vision 偶尔会把短中文片段猜成带问号的英文音节。
-    /// 仅在主候选已明确标记不确定、且后备候选包含汉字时切换，避免影响正常英文识别。
+    /// 中英文混排时，Vision 偶尔会把短中文片段猜成带问号的英文音节，或遗漏末尾字。
+    /// 仅在后备候选的置信度足够接近时切换，避免用低可信文本覆盖主候选。
     private func preferredCandidate(from candidates: [VNRecognizedText]) -> VNRecognizedText? {
         guard let primaryCandidate = candidates.first else { return nil }
-        guard supportsChineseRecognition,
-              primaryCandidate.string.contains("?")
-        else {
-            return primaryCandidate
+
+        guard supportsChineseRecognition else { return primaryCandidate }
+
+        if let completedCandidate = candidates.dropFirst().first(where: {
+            isPlausibleTrailingCompletion($0, of: primaryCandidate)
+        }) {
+            return completedCandidate
         }
 
-        return candidates.dropFirst().first(where: containsHanCharacters) ?? primaryCandidate
+        if primaryCandidate.string.contains("?") {
+            return candidates.dropFirst().first(where: containsHanCharacters) ?? primaryCandidate
+        }
+
+        return primaryCandidate
     }
 
     private var supportsChineseRecognition: Bool {
@@ -124,6 +150,72 @@ struct OCRService {
         candidate.string.unicodeScalars.contains { scalar in
             (0x4E00...0x9FFF).contains(scalar.value)
         }
+    }
+
+    private func isPlausibleTrailingCompletion(
+        _ candidate: VNRecognizedText,
+        of primaryCandidate: VNRecognizedText
+    ) -> Bool {
+        let primaryText = primaryCandidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        let candidateText = candidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        let extraCharacterCount = candidateText.count - primaryText.count
+
+        return primaryText.count >= 2
+            && (1...2).contains(extraCharacterCount)
+            && candidateText.hasPrefix(primaryText)
+            && candidate.confidence + 0.08 >= primaryCandidate.confidence
+    }
+
+    /// Vision 将短标签截断在文字框边缘时，向右扩展原框并只重识别该小区域。
+    /// 仅接受原文本的 1–2 字末尾补全，避免局部重试改变已经稳定的内容。
+    private func localizedTrailingCompletion(
+        in image: CGImage,
+        boundingBox: CGRect,
+        originalText: String
+    ) throws -> String? {
+        guard isShortChineseLabel(originalText),
+              let croppedImage = expandedTextCrop(from: image, boundingBox: boundingBox)
+        else {
+            return nil
+        }
+
+        let refinedImage = scaledImage(from: croppedImage, scale: 3) ?? croppedImage
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.recognitionLanguages = languages
+        request.automaticallyDetectsLanguage = false
+        request.usesLanguageCorrection = true
+
+        try VNImageRequestHandler(cgImage: refinedImage).perform([request])
+
+        return (request.results ?? [])
+            .flatMap { $0.topCandidates(3) }
+            .compactMap { OCRTextLayoutRules.sanitizeObservationText($0.string) }
+            .first { OCRTextLayoutRules.isLikelyTrailingCompletion($0, of: originalText) }
+    }
+
+    private func isShortChineseLabel(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (2...4).contains(trimmed.count)
+            && trimmed.unicodeScalars.allSatisfy { (0x4E00...0x9FFF).contains($0.value) }
+    }
+
+    private func expandedTextCrop(from image: CGImage, boundingBox: CGRect) -> CGImage? {
+        let expandedBox = CGRect(
+            x: boundingBox.minX - boundingBox.width * 0.15,
+            y: boundingBox.minY - boundingBox.height * 0.75,
+            width: boundingBox.width * 2.1,
+            height: boundingBox.height * 2.5
+        ).intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
+        guard !expandedBox.isNull, !expandedBox.isEmpty else { return nil }
+
+        let cropRect = CGRect(
+            x: expandedBox.minX * CGFloat(image.width),
+            y: (1 - expandedBox.maxY) * CGFloat(image.height),
+            width: expandedBox.width * CGFloat(image.width),
+            height: expandedBox.height * CGFloat(image.height)
+        ).integral
+        return image.cropping(to: cropRect)
     }
 
     private func groupObservationsIntoLines(_ observations: [(String, Float, CGRect)]) -> [[(String, Float, CGRect)]] {
@@ -164,6 +256,25 @@ struct OCRService {
         sharpen.sharpness = 0.45
 
         guard let outputImage = sharpen.outputImage else { return nil }
+        return ciContext.createCGImage(outputImage, from: outputImage.extent)
+    }
+
+    /// 仅在候选低置信度或疑似末字遗漏时放大重试，避免对所有截图增加不必要的延迟与内存开销。
+    private func upscaledImage(from image: CGImage) -> CGImage? {
+        let maximumDimension = max(CGFloat(image.width), CGFloat(image.height))
+        let scale = min(CGFloat(2), 3_000 / maximumDimension)
+        guard scale > 1.05 else { return nil }
+
+        return scaledImage(from: image, scale: scale)
+    }
+
+    private func scaledImage(from image: CGImage, scale: CGFloat) -> CGImage? {
+        let resize = CIFilter.lanczosScaleTransform()
+        resize.inputImage = CIImage(cgImage: image)
+        resize.scale = Float(scale)
+        resize.aspectRatio = 1
+
+        guard let outputImage = resize.outputImage else { return nil }
         return ciContext.createCGImage(outputImage, from: outputImage.extent)
     }
 }

@@ -3,6 +3,110 @@ import XCTest
 @testable import TextGrabberKit
 
 final class OCRServiceFormattingTests: XCTestCase {
+    func testTrailingCompletionOnlyAcceptsShortSuffixExtension() {
+        XCTAssertTrue(OCRTextLayoutRules.isLikelyTrailingCompletion("考试目的", of: "考试目"))
+        XCTAssertFalse(OCRTextLayoutRules.isLikelyTrailingCompletion("考试项目", of: "考试目"))
+        XCTAssertFalse(OCRTextLayoutRules.isLikelyTrailingCompletion("考试目", of: "考试目的"))
+    }
+
+    func testCandidateSelectionPrefersCompleteTrailingCharacterWhenConfidenceIsClose() {
+        let complete = OCRResult(
+            rawText: "考试目的",
+            readingOptimizedText: "考试目的",
+            lines: [OCRLine(text: "考试目的", confidence: 0.88)],
+            confidenceSummary: 0.88
+        )
+        let truncated = OCRResult(
+            rawText: "考试目",
+            readingOptimizedText: "考试目",
+            lines: [OCRLine(text: "考试目", confidence: 0.92)],
+            confidenceSummary: 0.92
+        )
+
+        let selected = OCRTextLayoutRules.selectBestCandidate(from: [complete, truncated])
+
+        XCTAssertEqual(selected?.rawText, "考试目的")
+        XCTAssertTrue(OCRTextLayoutRules.shouldRetryWithUpscaledImage([complete, truncated]))
+    }
+
+    func testCandidateSelectionDoesNotOverrideMateriallyMoreConfidentText() {
+        let complete = OCRResult(
+            rawText: "考试目的",
+            readingOptimizedText: "考试目的",
+            lines: [OCRLine(text: "考试目的", confidence: 0.78)],
+            confidenceSummary: 0.78
+        )
+        let truncated = OCRResult(
+            rawText: "考试目",
+            readingOptimizedText: "考试目",
+            lines: [OCRLine(text: "考试目", confidence: 0.92)],
+            confidenceSummary: 0.92
+        )
+
+        let selected = OCRTextLayoutRules.selectBestCandidate(from: [complete, truncated])
+
+        XCTAssertEqual(selected?.rawText, "考试目")
+    }
+
+    func testShortChineseLabelTriggersUpscaledRetry() {
+        let result = OCRResult(
+            rawText: "考试目",
+            readingOptimizedText: "考试目",
+            lines: [OCRLine(text: "考试目", confidence: 0.96)],
+            confidenceSummary: 0.96
+        )
+
+        XCTAssertTrue(OCRTextLayoutRules.shouldRetryWithUpscaledImage([result]))
+    }
+
+    func testCandidateSelectionMergesCompleteLineWithoutReplacingHigherConfidenceLines() {
+        let original = OCRResult(
+            rawText: "目标分数\n考试目",
+            readingOptimizedText: "目标分数\n考试目",
+            lines: [
+                OCRLine(text: "目标分数", confidence: 1.0),
+                OCRLine(text: "考试目", confidence: 1.0)
+            ],
+            confidenceSummary: 1.0
+        )
+        let upscaled = OCRResult(
+            rawText: "目标分数\n考试目的",
+            readingOptimizedText: "目标分数\n考试目的",
+            lines: [
+                OCRLine(text: "目标分数", confidence: 0.5),
+                OCRLine(text: "考试目的", confidence: 1.0)
+            ],
+            confidenceSummary: 0.75
+        )
+
+        let selected = OCRTextLayoutRules.selectBestCandidate(from: [original, upscaled])
+
+        XCTAssertEqual(selected?.rawText, "目标分数\n考试目的")
+        XCTAssertEqual(selected?.readingOptimizedText, "目标分数\n考试目的")
+        XCTAssertEqual(selected?.lines.first?.confidence, 1.0)
+    }
+
+    func testCandidateSelectionMergesCompletedFieldWithinTwoColumnRow() {
+        let original = OCRResult(
+            rawText: "考试目 兴趣爱好",
+            readingOptimizedText: "考试目 兴趣爱好",
+            lines: [OCRLine(text: "考试目 兴趣爱好", confidence: 0.75)],
+            confidenceSummary: 0.75
+        )
+        let upscaled = OCRResult(
+            rawText: "考试目的 兴趣爱好",
+            readingOptimizedText: "考试目的 兴趣爱好",
+            lines: [OCRLine(text: "考试目的 兴趣爱好", confidence: 0.75)],
+            confidenceSummary: 0.75
+        )
+
+        let selected = OCRTextLayoutRules.selectBestCandidate(from: [original, upscaled])
+
+        XCTAssertTrue(OCRTextLayoutRules.shouldRetryWithUpscaledImage([original]))
+        XCTAssertEqual(selected?.rawText, "考试目的 兴趣爱好")
+    }
+
+
     func testReadingOptimizedTextMergesChineseParagraphLines() {
         let lines = [
             OCRLayoutLine(text: "这是第一段的第一行", confidence: 0.9, boundingBox: CGRect(x: 0.12, y: 0.70, width: 0.72, height: 0.06)),
