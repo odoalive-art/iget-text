@@ -3,6 +3,7 @@ import SwiftUI
 
 public struct SettingsView: View {
     @ObservedObject var settings: AppSettings
+    @StateObject private var languagePackManager = TranslationLanguagePackManager()
 
     public init(settings: AppSettings) {
         self.settings = settings
@@ -13,10 +14,11 @@ public struct SettingsView: View {
             captureSection
             resultSection
             translationSection
+            LanguagePackSettingsSection(manager: languagePackManager)
             textEditingSection
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 440)
+        .frame(width: 460, height: 520)
     }
 
     // MARK: - 截图识别

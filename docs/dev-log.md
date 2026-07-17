@@ -29,6 +29,13 @@ Author: Claude
 Summary:
 - 修复两个可确定性验证的翻译 Bug：中英混排误判「不支持」、译文按 OCR 换行被拆段
 - 重构结果面板翻译会话链路，针对下载弹窗常驻、翻译偶发卡死做结构性修复，待真机验证
+- 新增设置页「翻译语言包」区块：可视化中↔英语言包安装状态、下载、跳转系统设置删除
+
+Changes（语言包管理）:
+- 新增 `TranslationLanguagePackManager`：用 `LanguageAvailability` 查询中↔英两个方向的安装状态并合并为单一 `PackStatus`，暴露 `refresh`/`requestDownload`/`finishDownload`
+- 新增 `LanguagePackSettingsSection` + `LanguagePackDownloadBridge`：设置页展示「已安装/未安装/检测中/不可用」状态徽标；未安装时「下载」按钮经 `.translationTask` 依次为两个方向调 `prepareTranslation()`（唤起系统下载弹窗）；「在系统设置中管理」深链到语言与地区面板供手动删除
+- 受 Apple `Translation` 框架限制：无删除 API、无法自绘下载进度、下载只能走系统弹窗，故删除采用深链、进度交给系统；范围仅限应用实际使用的中↔英
+- 设置窗口高度随新增区块从 488 调整到 568
 
 Changes（会话链路重构）:
 - 将「预热会话」和「正式翻译会话」两个 `.translationTask` 桥合并为单桥，由单一 `translationTaskRequest`（含 `performsTranslation` 标记）驱动，并用 `.id(requestToken)` 让每次请求重建桥，保证同一时刻只有一个 `TranslationSession`，消除同语言对会话并发导致的偶发卡死
@@ -42,7 +49,11 @@ Changes:
 - 为上述修复补 4 项单元测试（换行合并、空行段落保留、少量中文的英文句仍可翻译）
 Files Modified:
 - `Sources/TextGrabberKit/Services/SystemTranslationService.swift`
+- `Sources/TextGrabberKit/Services/TranslationLanguagePackManager.swift`（新增）
 - `Sources/TextGrabberKit/UI/ResultPopoverContentView.swift`
+- `Sources/TextGrabberKit/UI/LanguagePackSettingsSection.swift`（新增）
+- `Sources/TextGrabberKit/UI/SettingsView.swift`
+- `Sources/TextGrabberKit/UI/SettingsWindowController.swift`
 - `Tests/TextGrabberTests/SystemTranslationServiceTests.swift`
 - `docs/todo.md`
 - `docs/dev-log.md`
@@ -50,7 +61,8 @@ Files Modified:
 Notes:
 - `swift build` 通过，`swift test` 57 项全绿（新增 4 项）
 - 会话链路重构与预热门控只在本机做了编译 + 单测 + 竞态审查；下载弹窗常驻、偶发卡死属系统 `Translation` 框架运行时行为，须在真机上分别用「已装/未装语言包」两种状态回归，本机无法复现验证
-- 待真机验证的三个点：①未装语言包时打开面板不再自动弹下载框 ②装好语言包后点翻译仍能秒回（预热生效）③重复翻译同一词不再卡住转圈
+- 待真机验证的点：①未装语言包时打开面板不再自动弹下载框 ②装好语言包后点翻译仍能秒回（预热生效）③重复翻译同一词不再卡住转圈 ④语言包区块的「未安装→下载→已安装」流程与「在系统设置中管理」深链落点（本机中↔英已安装，无法复现下载态）
+- 已用小脚本探明 `LanguageAvailability.supportedLanguages` 返回 21 种语言、`status(from:to:)` 可用，本机中↔英均为 installed；删除深链 `com.apple.Localization-Settings.extension` 可打开语言与地区面板
 
 ## 2026-07-13
 

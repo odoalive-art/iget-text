@@ -57,15 +57,18 @@
 │   │   │   ├── OCRService.swift
 │   │   │   ├── OCRTextLayoutRules.swift
 │   │   │   ├── RecognitionWorkflow.swift
-│   │   │   └── SystemTranslationService.swift
+│   │   │   ├── SystemTranslationService.swift
+│   │   │   └── TranslationLanguagePackManager.swift
 │   │   └── UI
 │   │       ├── BlockEditingSelection.swift
+│   │       ├── LanguagePackSettingsSection.swift
 │   │       ├── ResultPopoverController.swift
 │   │       ├── ResultPopoverContentView.swift
 │   │       ├── ResultPopoverDebugWindowController.swift
 │   │       ├── ResultPopoverPreviewHost.swift
 │   │       ├── ResultPopoverStyles.swift
 │   │       ├── ResultPopoverView.swift
+│   │       ├── SettingsComponents.swift
 │   │       ├── SettingsView.swift
 │   │       └── SettingsWindowController.swift
 └── Tests
@@ -118,8 +121,9 @@
 - `OCRService`：Vision 文本识别、图像增强与候选质量选择
 - `OCRTextLayoutRules`：OCR 文本清洗、图标噪声过滤、列表符号还原、段落合并与中英文空格规则
 - `RecognitionWorkflow`：串联权限检查、截图、OCR 和取消等主流程动作
-- `SystemTranslationService`：系统翻译计划生成、语种推断、超时与错误映射，为后续在线翻译留出统一入口
+- `SystemTranslationService`：系统翻译计划生成、语种推断、超时与错误映射，为后续在线翻译留出统一入口；`normalizedSourceText` 按空行拆真实段落、段内换行按 CJK 感知合并，避免逐行翻译拆段
 - `OnlineTranslationService`：基于环境变量配置的通用 HTTP 在线翻译 provider，请求成功后可直接回填结果面板
+- `TranslationLanguagePackManager`：用 `LanguageAvailability` 查询中↔英语言包安装状态并驱动设置页语言包区块（受框架限制无删除/进度 API）
 
 #### `UI`
 
@@ -130,7 +134,9 @@
 - `BlockEditingSelection`：纯范围计算器，负责首次全选当前段落、再次全选全文
 - `ResultPopoverDebugWindowController`：`DEBUG` 构建下的 UI 调试面板，可在主程序内切换假数据场景和布局
 - `ResultPopoverStyles`：面板布局、玻璃容器、按钮样式和结果面板自适应尺寸规则
-- `SettingsWindowController` / `SettingsView`：单页设置窗口；用固定标签列呈现截图识别、结果、翻译与文本设置
+- `SettingsWindowController` / `SettingsView`：单页设置窗口；用固定标签列呈现截图识别、结果、翻译、语言包与文本设置
+- `SettingsComponents`：设置页可复用控件（只读信息行、说明文本、权限提示、快捷键录制器 `ShortcutRecorderControl`）
+- `LanguagePackSettingsSection`：翻译语言包区块与 `LanguagePackDownloadBridge` 下载桥接（`.translationTask` 依次准备中↔英两个方向）
 - `AppSettings` 现已持久化翻译来源策略，支持“自动（在线优先，失败/超时后回退系统）”和“仅系统翻译”
 
 ### `TextGrabberTests`
