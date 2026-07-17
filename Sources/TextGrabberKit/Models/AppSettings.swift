@@ -201,6 +201,8 @@ public final class AppSettings: ObservableObject {
     @Published var launchAtLogin = false
 
     static let defaultTranslationShortcutName = "TextGrabber Translate"
+    /// 官方分发的翻译快捷指令 iCloud 链接,供新用户一键获取导入。
+    static let translationShortcutICloudURL = URL(string: "https://www.icloud.com/shortcuts/bb63cda2cb9c42beaa5c2af365110db1")!
 
     let ocrLanguages = ["zh-Hans", "en-US"]
 

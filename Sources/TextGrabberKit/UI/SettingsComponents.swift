@@ -87,14 +87,23 @@ struct ShortcutTranslationConfigView: View {
             statusLabel
         }
 
-        Button("打开「快捷指令」App") {
-            if let url = URL(string: "shortcuts://") {
-                NSWorkspace.shared.open(url)
+        HStack(spacing: 12) {
+            Button("获取翻译快捷指令") {
+                NSWorkspace.shared.open(AppSettings.translationShortcutICloudURL)
+            }
+            Button("打开「快捷指令」App") {
+                if let url = URL(string: "shortcuts://") {
+                    NSWorkspace.shared.open(url)
+                }
             }
         }
         .controlSize(.small)
         .task(id: shortcutName) {
             await refreshInstallState()
+        }
+
+        if installState == .missing {
+            SettingsFootnote("点击「获取翻译快捷指令」会在「快捷指令」中打开导入确认页；导入后请保持名称为「\(AppSettings.defaultTranslationShortcutName)」，并在系统设置中关闭「设备端模式」以使用在线翻译。")
         }
     }
 
