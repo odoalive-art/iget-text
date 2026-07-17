@@ -564,18 +564,25 @@ struct ResultPopoverContentView: View {
     }
 
     private func presentSystemTranslation() {
-        if translationProvider == .appleShortcut {
-            beginShortcutTranslation()
-            return
+        switch translationProvider {
+        case .appleShortcut:
+            beginShortcutTranslation(fallBackToSystemOnFailure: false)
+        case .automatic:
+            // 自动:快捷指令(Apple 在线翻译)优先;未安装或失败/超时时回退系统翻译。
+            beginShortcutTranslation(fallBackToSystemOnFailure: true)
+        case .systemOnly:
+            beginResolvedTranslation(provider: .systemOnly)
         }
+    }
 
-        if let validationMessage = translationServiceResolver.validationMessage(for: translationSourceText, provider: translationProvider) {
+    private func beginResolvedTranslation(provider: TranslationProviderMode) {
+        if let validationMessage = translationServiceResolver.validationMessage(for: translationSourceText, provider: provider) {
             resultState.failTranslation(validationMessage)
             translationTaskRequest = nil
             return
         }
 
-        guard let execution = translationServiceResolver.resolve(for: translationSourceText, provider: translationProvider) else {
+        guard let execution = translationServiceResolver.resolve(for: translationSourceText, provider: provider) else {
             return
         }
 
@@ -583,39 +590,43 @@ struct ResultPopoverContentView: View {
         case let .system(plan, service):
             beginSystemTranslation(plan: plan, service: service)
         case let .online(plan, service):
-            translationTaskRequest = nil
-            resultState.beginTranslation()
-            translationRequestToken += 1
-            let currentRequestToken = translationRequestToken
+            beginOnlineHTTPTranslation(plan: plan, service: service)
+        }
+    }
 
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(15))
-                guard resultState.isTranslating, translationRequestToken == currentRequestToken else { return }
-                if !beginAutomaticSystemFallbackIfAvailable() {
-                    resultState.failTranslation(service.timeoutMessage(for: plan))
-                }
+    private func beginOnlineHTTPTranslation(plan: TranslationPlan, service: OnlineTranslationService) {
+        translationTaskRequest = nil
+        resultState.beginTranslation()
+        translationRequestToken += 1
+        let currentRequestToken = translationRequestToken
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(15))
+            guard resultState.isTranslating, translationRequestToken == currentRequestToken else { return }
+            if !beginAutomaticSystemFallbackIfAvailable() {
+                resultState.failTranslation(service.timeoutMessage(for: plan))
             }
+        }
 
-            Task {
-                do {
-                    let translatedText = try await service.translate(plan)
-                    await MainActor.run {
-                        guard translationRequestToken == currentRequestToken else { return }
-                        resultState.completeTranslation(translatedText)
-                    }
-                } catch {
-                    await MainActor.run {
-                        guard translationRequestToken == currentRequestToken else { return }
-                        if !beginAutomaticSystemFallbackIfAvailable() {
-                            resultState.failTranslation(service.message(for: error, plan: plan))
-                        }
+        Task {
+            do {
+                let translatedText = try await service.translate(plan)
+                await MainActor.run {
+                    guard translationRequestToken == currentRequestToken else { return }
+                    resultState.completeTranslation(translatedText)
+                }
+            } catch {
+                await MainActor.run {
+                    guard translationRequestToken == currentRequestToken else { return }
+                    if !beginAutomaticSystemFallbackIfAvailable() {
+                        resultState.failTranslation(service.message(for: error, plan: plan))
                     }
                 }
             }
         }
     }
 
-    private func beginShortcutTranslation() {
+    private func beginShortcutTranslation(fallBackToSystemOnFailure: Bool) {
         let sourceText = translationSourceText
         guard !sourceText.isEmpty else { return }
 
@@ -636,8 +647,13 @@ struct ResultPopoverContentView: View {
             } catch {
                 await MainActor.run {
                     guard translationRequestToken == currentRequestToken else { return }
-                    let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                    resultState.failTranslation(message)
+                    if fallBackToSystemOnFailure {
+                        // 自动模式:快捷指令不可用(未安装/失败/超时)时静默回退系统翻译。
+                        beginResolvedTranslation(provider: .systemOnly)
+                    } else {
+                        let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                        resultState.failTranslation(message)
+                    }
                 }
             }
         }

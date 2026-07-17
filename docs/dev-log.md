@@ -44,6 +44,11 @@ Changes（翻译版式修正）:
 - 根因是先前的 `normalizedSourceText` 在翻译层按 CJK 合并单换行，越权处理了本属独立的行；改为逐行去首尾空白、丢空行但**保留换行结构**，折行合并只交由 OCR 阅读优化阶段的版面几何判断
 - 更新对应单测（改为断言换行被保留、空行被丢弃）
 
+Changes（自动模式纳入快捷指令）:
+- 此前 `.automatic` 的"在线"仅指环境变量配置的 HTTP `OnlineTranslationService`，与用户配置的快捷指令无关，导致选「自动」仍走本地
+- 重构 `presentSystemTranslation`：`.automatic` 改为快捷指令优先（`beginShortcutTranslation(fallBackToSystemOnFailure: true)`），未安装/失败/超时时静默回退系统翻译；抽出 `beginResolvedTranslation(provider:)` 与 `beginOnlineHTTPTranslation`
+- 更新 `.automatic` 说明文案；设置页在 `.automatic` 与 `.appleShortcut` 下都展示 `ShortcutTranslationConfigView`（名称/安装状态）
+
 Changes（语言包管理）:
 - 新增 `TranslationLanguagePackManager`：用 `LanguageAvailability` 查询中↔英两个方向的安装状态并合并为单一 `PackStatus`，暴露 `refresh`/`requestDownload`/`finishDownload`
 - 新增 `LanguagePackSettingsSection` + `LanguagePackDownloadBridge`：设置页展示「已安装/未安装/检测中/不可用」状态徽标；未安装时「下载」按钮经 `.translationTask` 依次为两个方向调 `prepareTranslation()`（唤起系统下载弹窗）；「在系统设置中管理」深链到语言与地区面板供手动删除

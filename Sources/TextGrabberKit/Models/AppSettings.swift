@@ -86,7 +86,7 @@ enum TranslationProviderMode: String, Codable, CaseIterable {
     var helperText: String {
         switch self {
         case .automatic:
-            "若配置了在线翻译 provider，会优先走在线翻译；失败或超时后会自动回退到系统翻译。"
+            "优先通过「快捷指令」调用 Apple 在线翻译（需已安装指定快捷指令并关闭系统「设备端模式」）；未安装或失败/超时时自动回退到系统翻译。"
         case .systemOnly:
             "仅使用系统翻译能力，适合更看重本地能力和系统一致性的场景。"
         case .appleShortcut:

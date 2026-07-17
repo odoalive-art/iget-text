@@ -98,7 +98,7 @@ public struct SettingsView: View {
                 }
             }
 
-            if settings.translationProvider == .appleShortcut {
+            if settings.translationProvider == .appleShortcut || settings.translationProvider == .automatic {
                 ShortcutTranslationConfigView(shortcutName: $settings.translationShortcutName)
             }
         } header: {
