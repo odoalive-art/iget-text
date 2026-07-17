@@ -28,7 +28,7 @@
 1. 拉取最新主线
 2. 阅读 `AGENTS.md`、`PROJECT_RULES.md`
 3. 阅读 `docs/ai-context.md`、`docs/todo.md`
-4. 确认今天的目标任务
+4. 确认本次目标任务
 
 ## Start a New Task
 
@@ -56,7 +56,7 @@
 
 1. 拉取最新代码
 2. 阅读 `docs/ai-context.md`
-3. 阅读 `docs/dev-log.md` 最近一条记录
+3. 阅读 `docs/dev-log.md` 最新一条记录
 4. 查看 `docs/todo.md` 中未完成项
 
 ## Merge Back to Main

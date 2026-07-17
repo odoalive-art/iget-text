@@ -48,15 +48,18 @@
 │   │   ├── AppCoordinator.swift
 │   │   ├── Models
 │   │   │   ├── AppSettings.swift
-│   │   │   └── OCRResult.swift
+│   │   │   ├── OCRResult.swift
 │   │   │   └── RecognitionResultState.swift
 │   │   ├── Services
 │   │   │   ├── CaptureTriggerController.swift
 │   │   │   ├── CaptureService.swift
 │   │   │   ├── HotkeyController.swift
-│   │   │   └── OCRService.swift
-│   │   │   └── RecognitionWorkflow.swift
+│   │   │   ├── OCRService.swift
+│   │   │   ├── OCRTextLayoutRules.swift
+│   │   │   ├── RecognitionWorkflow.swift
+│   │   │   └── SystemTranslationService.swift
 │   │   └── UI
+│   │       ├── BlockEditingSelection.swift
 │   │       ├── ResultPopoverController.swift
 │   │       ├── ResultPopoverContentView.swift
 │   │       ├── ResultPopoverDebugWindowController.swift
@@ -67,7 +70,14 @@
 │   │       └── SettingsWindowController.swift
 └── Tests
     └── TextGrabberTests
-        └── SelectionSessionTests.swift
+        ├── AppSettingsTests.swift
+        ├── BlockEditingSelectionTests.swift
+        ├── CaptureServiceTests.swift
+        ├── OCRServiceFormattingTests.swift
+        ├── RecognitionResultStateTests.swift
+        ├── ResultPopoverLayoutTests.swift
+        ├── SelectionSessionTests.swift
+        └── SystemTranslationServiceTests.swift
 ```
 
 ## Modules
@@ -96,7 +106,7 @@
 
 #### `Models`
 
-- `AppSettings`：持久化用户设置，当前主要是快捷键
+- `AppSettings`：持久化截图激活、快捷键、结果窗口位置、翻译来源和块编辑设置
 - `OCRResult` / `OCRLine`：OCR 输出结果模型
 - `RecognitionResultState`：识别结果、输出模式、预览图和错误信息状态
 
@@ -105,7 +115,8 @@
 - `CaptureTriggerController`：管理快捷键注册、设置联动和选择阶段的 `Fn` 释放监测
 - `CaptureService`：屏幕录制权限、系统截图
 - `HotkeyController`：全局快捷键注册、纯修饰键监听和 `Fn` 激活监听
-- `OCRService`：Vision 文本识别与图像增强
+- `OCRService`：Vision 文本识别、图像增强与候选质量选择
+- `OCRTextLayoutRules`：OCR 文本清洗、图标噪声过滤、列表符号还原、段落合并与中英文空格规则
 - `RecognitionWorkflow`：串联权限检查、截图、OCR 和取消等主流程动作
 - `SystemTranslationService`：系统翻译计划生成、语种推断、超时与错误映射，为后续在线翻译留出统一入口
 - `OnlineTranslationService`：基于环境变量配置的通用 HTTP 在线翻译 provider，请求成功后可直接回填结果面板
@@ -115,20 +126,25 @@
 - `ResultPopoverController`：菜单栏图标、右键菜单、自定义浮动面板管理
 - `ResultPopoverController` 支持按菜单栏图标或鼠标位置显示结果面板，并会在结果内容变化时重新计算面板尺寸
 - `ResultPopoverView`：结果面板入口包装，连接 `AppCoordinator`
-- `ResultPopoverContentView`：结果面板主内容和各状态切换，并承接系统翻译入口以及预览区/文本区自适应布局
+- `ResultPopoverContentView`：结果面板主内容和各状态切换，并承接翻译入口、预览/文本自适应布局及 `NSTextView` 键盘桥接
+- `BlockEditingSelection`：纯范围计算器，负责首次全选当前段落、再次全选全文
 - `ResultPopoverDebugWindowController`：`DEBUG` 构建下的 UI 调试面板，可在主程序内切换假数据场景和布局
 - `ResultPopoverStyles`：面板布局、玻璃容器、按钮样式和结果面板自适应尺寸规则
-- `SettingsWindowController` / `SettingsView`：设置窗口与快捷键编辑 UI
+- `SettingsWindowController` / `SettingsView`：单页设置窗口；用固定标签列呈现截图识别、结果、翻译与文本设置
 - `AppSettings` 现已持久化翻译来源策略，支持“自动（在线优先，失败/超时后回退系统）”和“仅系统翻译”
 
 ### `TextGrabberTests`
 
-当前测试较轻量，主要覆盖：
+当前测试覆盖：
 
 - 快捷键显示字符串
 - 纯修饰键快捷键的显示与判定
 - 快捷键事件到模型的解析逻辑
 - `AppSettings` 的默认值、持久化与旧快捷键迁移逻辑
+- 块编辑的段落/全文两阶段范围计算
+- OCR 阅读优化、列表符号和段落合并规则
+- 结果面板尺寸、窗口固定与焦点请求
+- 截图取消分类和系统/在线翻译的语言策略
 
 ## Data Flow
 
@@ -139,19 +155,20 @@
 3. `AppCoordinator` 检查屏幕录制权限
 4. `CaptureService` 调用 `screencapture -i -x` 进行系统截图
 5. 截图结果传入 `OCRService`
-6. `OCRService` 使用 Vision 识别文本，并在必要时尝试增强图像后再次识别
-7. `AppCoordinator` 更新识别文本、预览图、界面状态
-8. `ResultPopoverController` 展示结果浮动面板
+6. `OCRService` 分别识别原图与增强图，并按质量分选择候选
+7. `OCRTextLayoutRules` 生成默认展示的阅读优化文本
+8. `AppCoordinator` 更新识别文本、预览图、界面状态
+9. `ResultPopoverController` 展示结果浮动面板
 
 在 `Fn` 模式或纯修饰键模式下，释放激活键会中断交互式截图并退出框选。
 
 ### 设置流
 
 1. 用户打开设置窗口
-2. 修改快捷键、激活模式或识别窗口位置
+2. 修改快捷键、激活模式、识别窗口位置、翻译来源或块编辑
 3. `AppSettings` 持久化新的设置
-4. `AppCoordinator` 监听设置变化
-5. `HotkeyController` 更新系统级快捷键注册或 `Fn` 监听方式
+4. `CaptureTriggerController` 监听触发相关设置，并更新系统级快捷键或 `Fn` 监听方式
+5. 结果面板直接观察窗口位置、翻译来源和块编辑设置
 
 ### 翻译入口
 
@@ -160,6 +177,14 @@
 3. `ResultPopoverContentView` 在 `macOS 15+` 上通过 SwiftUI 的 `translationTask` 驱动系统翻译会话
 4. 翻译结果继续显示在应用自己的结果面板中，失败则展示统一错误文案
 5. 在更低系统版本上显示兼容性提示，不影响 OCR 主流程
+
+### 块编辑
+
+1. `AppSettings.isBlockEditingEnabled` 控制功能是否启用，默认开启
+2. `FocusableResultTextView` 在 AppKit 响应链中接管 `⌘A` 与 `⌃A`
+3. `BlockEditingSelection` 根据光标位置返回当前段落范围；若当前选择已是该段落，则返回全文范围
+4. 文本视图仅为块选择补齐整行背景，真实字符范围保持不变，复制不会引入填充字符
+5. 鼠标选择或其他键盘移动会恢复系统原生选择外观
 
 ## State Model
 
@@ -227,3 +252,4 @@
 4. `templates/collaboration-starter` 提供了一套可复制到新仓库的协作初始化包。
 5. `TranslationServiceResolver` 会根据设置和环境变量决定走在线翻译还是系统翻译；当前“自动”策略在检测到在线 provider 配置时会优先在线，失败后再回退系统。
 6. 当前分发层仍以脚本打包为主，已支持本机一键 `.app` / zip / `/Applications` 安装；正式对外分发仍需后续补充 Developer ID 签名与 notarization。
+7. OCR 的 Vision 执行与文本版式规则保持分离；新增清洗规则应优先进入 `OCRTextLayoutRules` 并补充格式化测试。

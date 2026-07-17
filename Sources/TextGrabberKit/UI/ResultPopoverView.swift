@@ -4,21 +4,23 @@ import SwiftUI
 struct ResultPopoverView: View {
     @ObservedObject var coordinator: AppCoordinator
     @ObservedObject private var resultState: RecognitionResultState
+    @ObservedObject private var settings: AppSettings
 
     init(coordinator: AppCoordinator) {
         self.coordinator = coordinator
         _resultState = ObservedObject(wrappedValue: coordinator.resultState)
+        _settings = ObservedObject(wrappedValue: coordinator.settings)
     }
 
     var body: some View {
         ResultPopoverContentView(
             displayState: displayState,
-            placementMode: coordinator.settings.resultPanelPlacement,
+            placementMode: settings.resultPanelPlacement,
             isPinned: $coordinator.isResultPanelPinned,
             resultState: resultState,
             translationServiceResolver: coordinator.translationServiceResolver,
-            translationProvider: coordinator.settings.translationProvider,
-            isBlockEditingEnabled: coordinator.settings.isBlockEditingEnabled,
+            translationProvider: settings.translationProvider,
+            isBlockEditingEnabled: settings.isBlockEditingEnabled,
             outputMode: Binding(
                 get: { resultState.outputMode },
                 set: { coordinator.setOutputMode($0) }

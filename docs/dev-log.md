@@ -22,6 +22,45 @@ Notes:
 
 ## Entries
 
+## 2026-07-13
+
+Author: Codex
+
+Summary:
+- 完成结果面板视觉、OCR 文本规则、块编辑与设置页的阶段性收敛
+- 将本轮最终状态同步到 README、架构、回归清单和任务列表
+
+Changes:
+- 结果面板固定为 400pt 宽，顶/底工具栏统一为 44pt，正文与译文统一为 14pt 一级字色
+- 统一角落工具按钮、Tooltip、hover/选中反馈、卡片背景、滚动条和窗口阴影/描边细节
+- 将 OCR 后处理拆入 `OCRTextLayoutRules.swift`，补强图标噪声过滤、列表符号还原和段落合并测试
+- 新增可持久化的块编辑设置，通过 AppKit 响应链实现“当前段落 → 全文”两阶段全选，并补齐连续行选中背景
+- 将设置窗口重做为单页三分区、固定标签列的 macOS 布局，移除无效预留项和不必要的多面板导航
+
+Files Modified:
+- `Sources/TextGrabberKit/Models/AppSettings.swift`
+- `Sources/TextGrabberKit/Services/OCRService.swift`
+- `Sources/TextGrabberKit/Services/OCRTextLayoutRules.swift`
+- `Sources/TextGrabberKit/UI/BlockEditingSelection.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverContentView.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverStyles.swift`
+- `Sources/TextGrabberKit/UI/SettingsView.swift`
+- `Sources/TextGrabberKit/UI/SettingsWindowController.swift`
+- `Tests/TextGrabberTests/AppSettingsTests.swift`
+- `Tests/TextGrabberTests/BlockEditingSelectionTests.swift`
+- `Tests/TextGrabberTests/OCRServiceFormattingTests.swift`
+- `README.md`
+- `docs/ai-context.md`
+- `docs/architecture.md`
+- `docs/git-workflow.md`
+- `docs/regression-cases.md`
+- `docs/todo.md`
+- `docs/dev-log.md`
+
+Notes:
+- 已验证 `swift test`（47 项）和 `./scripts/codex-run.sh --verify`
+- 设置窗口已通过真实窗口截图校对；块编辑的 AppKit 键盘分发和视觉选择仍建议纳入人工回归
+
 ## 2026-07-10
 
 Author: Claude

@@ -1,5 +1,4 @@
 import AppKit
-import Carbon
 import SwiftUI
 
 public struct SettingsView: View {
@@ -11,95 +10,108 @@ public struct SettingsView: View {
 
     public var body: some View {
         Form {
-            Section("快捷键") {
-                Picker("激活方式", selection: $settings.activationMode) {
-                    ForEach(CaptureActivationMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
-                }
-
-                HStack {
-                    Text("截图识别")
-                    Spacer()
-                    ShortcutRecorderRepresentable(shortcut: $settings.hotkey)
-                        .frame(width: 160, height: 32)
-                }
-                .opacity(settings.activationMode == .keyboardShortcut ? 1 : 0.45)
-
-                Button("恢复默认快捷键") {
-                    settings.resetHotkey()
-                }
-                .disabled(settings.activationMode != .keyboardShortcut)
-
-                if settings.activationMode == .doubleModifierTap {
-                    Picker("双击按键", selection: $settings.doubleTapModifier) {
-                        ForEach(DoubleTapModifier.allCases, id: \.self) { modifier in
-                            Text(modifier.displayName).tag(modifier)
-                        }
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("快速连按两次所选修饰键即可触发截图识别。连按需要在较短时间内完成，并且不夹带其他修饰键。使用该模式需要额外开启“辅助功能”权限。")
-                            .foregroundStyle(.secondary)
-                        Button("打开辅助功能设置") {
-                            openAccessibilityPreferences()
-                        }
-                    }
-                }
-
-                if settings.activationMode == .functionKey {
-                    Text("按住 Fn 键进入框选，松开 Fn 键退出截图。")
-                        .foregroundStyle(.secondary)
-                }
-
-                if settings.activationMode == .keyboardShortcut, settings.hotkey.modifierOnly {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("纯修饰键会直接影响系统截图选区行为，因此当前仅将其作为触发方式，不再绑定“松开退出”。使用纯修饰键组合需要额外开启“辅助功能”权限。")
-                            .foregroundStyle(.secondary)
-                        Button("打开辅助功能设置") {
-                            openAccessibilityPreferences()
-                        }
-                    }
-                }
-            }
-
-            Section("识别语言") {
-                Text("固定为简体中文 + 英文")
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("翻译") {
-                Picker("翻译来源", selection: $settings.translationProvider) {
-                    ForEach(TranslationProviderMode.allCases, id: \.self) { provider in
-                        Text(provider.displayName).tag(provider)
-                    }
-                }
-
-                Text(settings.translationProvider.helperText)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("文本编辑") {
-                Toggle("启用块编辑", isOn: $settings.isBlockEditingEnabled)
-
-                Text("在识别结果中，第一次按 ⌘A 或 ⌃A 选择光标所在段落；连续再按一次可选择全文。")
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("其他") {
-                Picker("识别窗口位置", selection: $settings.resultPanelPlacement) {
-                    ForEach(ResultPanelPlacementMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
-                }
-
-                Toggle("登录时启动（预留）", isOn: $settings.launchAtLogin)
-                    .disabled(true)
-            }
+            captureSection
+            resultSection
+            translationSection
+            textEditingSection
         }
         .formStyle(.grouped)
-        .padding(20)
         .frame(width: 460, height: 440)
+    }
+
+    // MARK: - 截图识别
+
+    private var captureSection: some View {
+        Section {
+            Picker("激活方式", selection: $settings.activationMode) {
+                ForEach(CaptureActivationMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+
+            switch settings.activationMode {
+            case .keyboardShortcut:
+                ShortcutRecorderRow(title: "快捷键", shortcut: $settings.hotkey) {
+                    settings.resetHotkey()
+                }
+            case .doubleModifierTap:
+                Picker("双击修饰键", selection: $settings.doubleTapModifier) {
+                    ForEach(DoubleTapModifier.allCases, id: \.self) { modifier in
+                        Text(modifier.displayName).tag(modifier)
+                    }
+                }
+            case .functionKey:
+                EmptyView()
+            }
+        } header: {
+            Text("截图识别")
+        } footer: {
+            captureFooter
+        }
+    }
+
+    @ViewBuilder
+    private var captureFooter: some View {
+        switch settings.activationMode {
+        case .keyboardShortcut:
+            if settings.hotkey.modifierOnly {
+                PermissionCallout(
+                    text: "纯修饰键仅作为触发方式,不绑定“松开退出”。使用此方式需要开启“辅助功能”权限。",
+                    actionTitle: "打开辅助功能设置",
+                    action: openAccessibilityPreferences
+                )
+            }
+        case .doubleModifierTap:
+            PermissionCallout(
+                text: "快速连按两次所选修饰键即可触发截图识别。连按需在较短时间内完成,且不夹带其他修饰键。使用此方式需要开启“辅助功能”权限。",
+                actionTitle: "打开辅助功能设置",
+                action: openAccessibilityPreferences
+            )
+        case .functionKey:
+            SettingsFootnote("按住 Fn 键进入框选,松开 Fn 键退出截图。")
+        }
+    }
+
+    // MARK: - 结果
+
+    private var resultSection: some View {
+        Section("结果") {
+            SettingsInfoRow("识别语言", value: "简体中文、英文")
+
+            Picker("显示位置", selection: $settings.resultPanelPlacement) {
+                ForEach(ResultPanelPlacementMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+        }
+    }
+
+    // MARK: - 翻译
+
+    private var translationSection: some View {
+        Section {
+            Picker("翻译来源", selection: $settings.translationProvider) {
+                ForEach(TranslationProviderMode.allCases, id: \.self) { provider in
+                    Text(provider.displayName).tag(provider)
+                }
+            }
+        } header: {
+            Text("翻译")
+        } footer: {
+            SettingsFootnote(settings.translationProvider.helperText)
+        }
+    }
+
+    // MARK: - 文本编辑
+
+    private var textEditingSection: some View {
+        Section {
+            Toggle("段落级全选", isOn: $settings.isBlockEditingEnabled)
+        } header: {
+            Text("文本编辑")
+        } footer: {
+            SettingsFootnote("第一次按 ⌘A 或 ⌃A 选择光标所在段落;连续再按一次选择全文。")
+        }
     }
 
     private func openAccessibilityPreferences() {
@@ -108,128 +120,5 @@ public struct SettingsView: View {
         }
 
         NSWorkspace.shared.open(url)
-    }
-}
-
-private struct ShortcutRecorderRepresentable: NSViewRepresentable {
-    @Binding var shortcut: KeyboardShortcut
-
-    func makeNSView(context: Context) -> ShortcutRecorderControl {
-        let control = ShortcutRecorderControl(shortcut: shortcut)
-        control.onShortcutChange = { newShortcut in
-            shortcut = newShortcut
-        }
-        return control
-    }
-
-    func updateNSView(_ nsView: ShortcutRecorderControl, context: Context) {
-        nsView.shortcut = shortcut
-    }
-}
-
-@MainActor
-private final class ShortcutRecorderControl: NSView {
-    var onShortcutChange: ((KeyboardShortcut) -> Void)?
-
-    var shortcut: KeyboardShortcut {
-        didSet {
-            updateLabel()
-        }
-    }
-
-    private let label = NSTextField(labelWithString: "")
-    private var isRecording = false {
-        didSet {
-            updateLabel()
-            needsDisplay = true
-        }
-    }
-
-    init(shortcut: KeyboardShortcut) {
-        self.shortcut = shortcut
-        super.init(frame: CGRect(origin: .zero, size: CGSize(width: 160, height: 32)))
-        setupView()
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
-    }
-
-    override var acceptsFirstResponder: Bool { true }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let fill = NSColor.controlBackgroundColor
-        fill.setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8).fill()
-
-        let strokeColor = isRecording ? NSColor.controlAccentColor : NSColor.separatorColor
-        strokeColor.setStroke()
-        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 8, yRadius: 8)
-        path.lineWidth = 1
-        path.stroke()
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        window?.makeFirstResponder(self)
-        isRecording = true
-    }
-
-    override func keyDown(with event: NSEvent) {
-        if event.keyCode == UInt16(kVK_Escape) {
-            isRecording = false
-            return
-        }
-
-        guard let shortcut = KeyboardShortcut.from(event: event) else {
-            NSSound.beep()
-            return
-        }
-
-        self.shortcut = shortcut
-        isRecording = false
-        onShortcutChange?(shortcut)
-    }
-
-    override func flagsChanged(with event: NSEvent) {
-        guard isRecording else {
-            super.flagsChanged(with: event)
-            return
-        }
-
-        guard let shortcut = KeyboardShortcut.from(event: event), shortcut.modifierOnly else {
-            return
-        }
-
-        self.shortcut = shortcut
-        isRecording = false
-        onShortcutChange?(shortcut)
-    }
-
-    override func resignFirstResponder() -> Bool {
-        isRecording = false
-        return true
-    }
-
-    private func setupView() {
-        wantsLayer = true
-
-        label.alignment = .center
-        label.font = .monospacedSystemFont(ofSize: 13, weight: .medium)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(label)
-
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            label.centerYAnchor.constraint(equalTo: centerYAnchor)
-        ])
-
-        updateLabel()
-    }
-
-    private func updateLabel() {
-        label.stringValue = isRecording ? "按下新快捷键" : shortcut.displayString
-        label.textColor = isRecording ? .controlAccentColor : .labelColor
     }
 }
