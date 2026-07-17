@@ -113,7 +113,9 @@ private final class SettingsTitlebarView: NSView {
         super.init(frame: .zero)
 
         let effectView = NSVisualEffectView()
-        effectView.material = .hudWindow
+        // 模糊强度由材质决定(无数值可调)。.sidebar 比 .headerView 更通透,
+        // 透出下方设置内容更明显;可按需换 .menu / .popover / .hudWindow 调强弱。
+        effectView.material = .sidebar
         // 透出窗口内(下方设置内容)的毛玻璃,而非窗口背后的桌面。
         effectView.blendingMode = .withinWindow
         effectView.state = .active
