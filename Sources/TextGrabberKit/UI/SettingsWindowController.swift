@@ -15,7 +15,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.titlebarAppearsTransparent = true
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.setContentSize(NSSize(width: 460, height: 568))
+        window.setContentSize(NSSize(width: 460, height: SettingsLayout.windowHeight))
         window.center()
         window.isReleasedWhenClosed = false
 
@@ -85,19 +85,20 @@ private final class SettingsWindowContentController: NSViewController {
 
         titlebarView.translatesAutoresizingMaskIntoConstraints = false
         settingsView.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(titlebarView)
+        // 内容层铺满整个窗口(位于下层),标题栏叠在其上;标题栏的窗口内毛玻璃即可透出内容。
         containerView.addSubview(settingsView)
+        containerView.addSubview(titlebarView)
 
         NSLayoutConstraint.activate([
+            settingsView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            settingsView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            settingsView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            settingsView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+
             titlebarView.topAnchor.constraint(equalTo: containerView.topAnchor),
             titlebarView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             titlebarView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            titlebarView.heightAnchor.constraint(equalToConstant: SettingsTitlebarView.height),
-
-            settingsView.topAnchor.constraint(equalTo: titlebarView.bottomAnchor),
-            settingsView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            settingsView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            settingsView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+            titlebarView.heightAnchor.constraint(equalToConstant: SettingsTitlebarView.height)
         ])
 
         addChild(hostingController)
@@ -106,14 +107,15 @@ private final class SettingsWindowContentController: NSViewController {
 }
 
 private final class SettingsTitlebarView: NSView {
-    static let height: CGFloat = 48
+    static let height: CGFloat = SettingsLayout.titlebarHeight
 
     init(title: String) {
         super.init(frame: .zero)
 
         let effectView = NSVisualEffectView()
-        effectView.material = .headerView
-        effectView.blendingMode = .behindWindow
+        effectView.material = .hudWindow
+        // 透出窗口内(下方设置内容)的毛玻璃,而非窗口背后的桌面。
+        effectView.blendingMode = .withinWindow
         effectView.state = .active
 
         effectView.translatesAutoresizingMaskIntoConstraints = false

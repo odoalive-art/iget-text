@@ -18,7 +18,11 @@ public struct SettingsView: View {
             textEditingSection
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 520)
+        // 顶部留出标题栏高度的安全区,内容从标题栏毛玻璃下方滚过。
+        .safeAreaInset(edge: .top, spacing: 0) {
+            Color.clear.frame(height: SettingsLayout.titlebarHeight)
+        }
+        .frame(width: 460, height: SettingsLayout.windowHeight)
     }
 
     // MARK: - 截图识别

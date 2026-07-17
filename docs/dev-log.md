@@ -52,6 +52,7 @@ Changes（自动模式纳入快捷指令）:
 Changes（新用户获取快捷指令）:
 - 新用户没有翻译快捷指令,设置页 `ShortcutTranslationConfigView` 增加「获取翻译快捷指令」按钮,打开官方分发的 iCloud 链接（`AppSettings.translationShortcutICloudURL`）唤起「快捷指令」导入确认页；未安装时附引导文案（保持名称一致、关闭「设备端模式」）
 - iCloud 链接方案免去打包/签名 `.shortcut` 文件的麻烦（`shortcuts sign` 在本机拒绝手搓 plist，droplet 导出也不含可导入本体）；代价是导入时需联网一次、依赖分享保持有效
+- 设置窗口标题栏毛玻璃改为透出窗口内内容:内容层铺满整个窗口置于标题栏下层、`Form` 顶部留 `SettingsLayout.titlebarHeight` 安全区,标题栏 `NSVisualEffectView` 改 `.blendingMode = .withinWindow`、`material = .hudWindow`(通透更明显);新增 `SettingsLayout` 常量。评估过原生 Liquid Glass（`NSGlassEffectView`，仅 `.regular`/`.clear` 两档、macOS 26+），本轮维持 `NSVisualEffectView`
 - `ShortcutTranslationConfigView` 重做为设置页内联步骤引导：①获取并导入（实时检测安装状态，✅/待办 + 「获取快捷指令」「重新检测」按钮，含"允许不受信任的快捷指令"提示）②关闭「设备端模式」（可选、系统开关无法检测，深链系统设置）；新增 `ShortcutSetupStep` 步骤行组件
 
 Changes（语言包管理）:
