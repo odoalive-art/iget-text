@@ -80,43 +80,66 @@ struct ShortcutTranslationConfigView: View {
             )
             .textFieldStyle(.roundedBorder)
             .multilineTextAlignment(.trailing)
-            .frame(width: 210)
+            .frame(width: 200)
         }
 
-        LabeledContent("状态") {
-            statusLabel
-        }
-
-        HStack(spacing: 12) {
-            Button("获取翻译快捷指令") {
-                NSWorkspace.shared.open(AppSettings.translationShortcutICloudURL)
+        VStack(alignment: .leading, spacing: 14) {
+            ShortcutSetupStep(
+                marker: stepOneMarker,
+                title: stepOneTitle,
+                detail: "点右侧按钮，在「快捷指令」中点「添加快捷指令」完成导入。若被系统拦截，先到「快捷指令 → 设置」开启「允许不受信任的快捷指令」；导入后名称需保持「\(AppSettings.defaultTranslationShortcutName)」。"
+            ) {
+                HStack(spacing: 8) {
+                    if installState != .installed {
+                        Button("获取快捷指令") {
+                            NSWorkspace.shared.open(AppSettings.translationShortcutICloudURL)
+                        }
+                    }
+                    Button("重新检测") {
+                        Task { await refreshInstallState() }
+                    }
+                }
             }
-            Button("打开「快捷指令」App") {
-                if let url = URL(string: "shortcuts://") {
-                    NSWorkspace.shared.open(url)
+
+            ShortcutSetupStep(
+                marker: .optional,
+                title: "关闭系统「设备端模式」（可选，在线翻译更准）",
+                detail: "离线也能翻译；关闭后快捷指令会走 Apple 在线翻译，结果更准确。此开关由系统管理，App 无法自动检测。"
+            ) {
+                Button("打开系统设置") {
+                    openTranslationSettings()
                 }
             }
         }
-        .controlSize(.small)
         .task(id: shortcutName) {
             await refreshInstallState()
         }
+    }
 
-        if installState == .missing {
-            SettingsFootnote("点击「获取翻译快捷指令」会在「快捷指令」中打开导入确认页；导入后请保持名称为「\(AppSettings.defaultTranslationShortcutName)」，并在系统设置中关闭「设备端模式」以使用在线翻译。")
+    private var stepOneMarker: ShortcutSetupStepMarker {
+        switch installState {
+        case .checking: return .checking
+        case .installed: return .done
+        case .missing: return .pending
         }
     }
 
-    @ViewBuilder
-    private var statusLabel: some View {
+    private var stepOneTitle: String {
         switch installState {
-        case .checking:
-            Label("检测中…", systemImage: "clock").foregroundStyle(.secondary)
-        case .installed:
-            Label("已安装", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-        case .missing:
-            Label("未找到，请在快捷指令中创建", systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.orange)
+        case .checking: return "获取并导入翻译快捷指令（检测中…）"
+        case .installed: return "翻译快捷指令已安装"
+        case .missing: return "获取并导入翻译快捷指令"
+        }
+    }
+
+    private func openTranslationSettings() {
+        for candidate in [
+            "x-apple.systempreferences:com.apple.Localization-Settings.extension",
+            "x-apple.systempreferences:com.apple.preference.general"
+        ] {
+            if let url = URL(string: candidate), NSWorkspace.shared.open(url) {
+                return
+            }
         }
     }
 
@@ -128,6 +151,58 @@ struct ShortcutTranslationConfigView: View {
             ShortcutsTranslationService.installedShortcutNames().contains(targetName)
         }.value
         installState = installed ? .installed : .missing
+    }
+}
+
+private enum ShortcutSetupStepMarker {
+    case done
+    case checking
+    case pending
+    case optional
+}
+
+/// 引导步骤行:左侧状态标记 + 标题/说明 + 右侧操作。
+private struct ShortcutSetupStep<Trailing: View>: View {
+    let marker: ShortcutSetupStepMarker
+    let title: String
+    let detail: String
+    @ViewBuilder var trailing: () -> Trailing
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            markerView
+                .frame(width: 18, height: 18)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(title)
+                        .font(.callout)
+                        .fontWeight(.medium)
+                    Spacer(minLength: 8)
+                    trailing()
+                        .controlSize(.small)
+                        .fixedSize()
+                }
+                Text(detail)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var markerView: some View {
+        switch marker {
+        case .done:
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+        case .checking:
+            ProgressView().controlSize(.small)
+        case .pending:
+            Image(systemName: "circle").foregroundStyle(.secondary)
+        case .optional:
+            Image(systemName: "info.circle").foregroundStyle(.secondary)
+        }
     }
 }
 
