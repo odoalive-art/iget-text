@@ -57,6 +57,71 @@ struct PermissionCallout: View {
     }
 }
 
+// MARK: - 快捷指令翻译配置
+
+/// 「Apple 在线翻译(快捷指令)」选中时的附加配置:快捷指令名称、安装状态与打开入口。
+struct ShortcutTranslationConfigView: View {
+    @Binding var shortcutName: String
+
+    @State private var installState: InstallState = .checking
+
+    private enum InstallState {
+        case checking
+        case installed
+        case missing
+    }
+
+    var body: some View {
+        LabeledContent("快捷指令名称") {
+            TextField(
+                "",
+                text: $shortcutName,
+                prompt: Text(AppSettings.defaultTranslationShortcutName)
+            )
+            .textFieldStyle(.roundedBorder)
+            .multilineTextAlignment(.trailing)
+            .frame(width: 210)
+        }
+
+        LabeledContent("状态") {
+            statusLabel
+        }
+
+        Button("打开「快捷指令」App") {
+            if let url = URL(string: "shortcuts://") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+        .controlSize(.small)
+        .task(id: shortcutName) {
+            await refreshInstallState()
+        }
+    }
+
+    @ViewBuilder
+    private var statusLabel: some View {
+        switch installState {
+        case .checking:
+            Label("检测中…", systemImage: "clock").foregroundStyle(.secondary)
+        case .installed:
+            Label("已安装", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+        case .missing:
+            Label("未找到，请在快捷指令中创建", systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+        }
+    }
+
+    private func refreshInstallState() async {
+        let name = shortcutName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let targetName = name.isEmpty ? AppSettings.defaultTranslationShortcutName : name
+        installState = .checking
+        let installed = await Task.detached {
+            ShortcutsTranslationService.installedShortcutNames().contains(targetName)
+        }.value
+        installState = installed ? .installed : .missing
+    }
+}
+
 // MARK: - 快捷键录制
 
 /// 快捷键录制行:录制控件 + 恢复默认按钮。

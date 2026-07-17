@@ -20,6 +20,7 @@ struct ResultPopoverView: View {
             resultState: resultState,
             translationServiceResolver: coordinator.translationServiceResolver,
             translationProvider: settings.translationProvider,
+            translationShortcutName: settings.translationShortcutName,
             isBlockEditingEnabled: settings.isBlockEditingEnabled,
             outputMode: Binding(
                 get: { resultState.outputMode },

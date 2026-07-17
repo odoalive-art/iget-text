@@ -44,6 +44,9 @@ struct TranslationServiceResolver {
             return systemService.validationMessage(for: text)
         case .systemOnly:
             return systemService.validationMessage(for: text)
+        case .appleShortcut:
+            // 快捷指令自行判断方向、支持任意语言,不做前置校验;实际执行在结果面板中直接调用。
+            return nil
         }
     }
 
@@ -65,6 +68,9 @@ struct TranslationServiceResolver {
             }
 
             return .system(plan: plan, service: systemService)
+        case .appleShortcut:
+            // 由结果面板直接经 ShortcutsTranslationService 处理,这里不参与解析。
+            return nil
         }
     }
 }

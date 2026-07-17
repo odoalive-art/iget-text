@@ -97,6 +97,10 @@ public struct SettingsView: View {
                     Text(provider.displayName).tag(provider)
                 }
             }
+
+            if settings.translationProvider == .appleShortcut {
+                ShortcutTranslationConfigView(shortcutName: $settings.translationShortcutName)
+            }
         } header: {
             Text("翻译")
         } footer: {

@@ -18,6 +18,7 @@ struct ResultPopoverContentView: View {
     @ObservedObject var resultState: RecognitionResultState
     let translationServiceResolver: TranslationServiceResolver
     let translationProvider: TranslationProviderMode
+    var translationShortcutName: String = AppSettings.defaultTranslationShortcutName
     let isBlockEditingEnabled: Bool
     @Binding var outputMode: OCRTextOutputMode
     @Binding var recognizedText: String
@@ -563,6 +564,11 @@ struct ResultPopoverContentView: View {
     }
 
     private func presentSystemTranslation() {
+        if translationProvider == .appleShortcut {
+            beginShortcutTranslation()
+            return
+        }
+
         if let validationMessage = translationServiceResolver.validationMessage(for: translationSourceText, provider: translationProvider) {
             resultState.failTranslation(validationMessage)
             translationTaskRequest = nil
@@ -604,6 +610,34 @@ struct ResultPopoverContentView: View {
                             resultState.failTranslation(service.message(for: error, plan: plan))
                         }
                     }
+                }
+            }
+        }
+    }
+
+    private func beginShortcutTranslation() {
+        let sourceText = translationSourceText
+        guard !sourceText.isEmpty else { return }
+
+        // 快捷指令自行判断翻译方向,这里不再走系统会话,也无需预热的 translationTask。
+        translationTaskRequest = nil
+        resultState.beginTranslation()
+        translationRequestToken += 1
+        let currentRequestToken = translationRequestToken
+        let service = ShortcutsTranslationService(shortcutName: translationShortcutName)
+
+        Task {
+            do {
+                let translatedText = try await service.translate(sourceText)
+                await MainActor.run {
+                    guard translationRequestToken == currentRequestToken else { return }
+                    resultState.completeTranslation(translatedText)
+                }
+            } catch {
+                await MainActor.run {
+                    guard translationRequestToken == currentRequestToken else { return }
+                    let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    resultState.failTranslation(message)
                 }
             }
         }

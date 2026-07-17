@@ -70,6 +70,7 @@ enum ResultPanelPlacementMode: String, Codable, CaseIterable {
 enum TranslationProviderMode: String, Codable, CaseIterable {
     case automatic
     case systemOnly
+    case appleShortcut
 
     var displayName: String {
         switch self {
@@ -77,6 +78,8 @@ enum TranslationProviderMode: String, Codable, CaseIterable {
             "自动"
         case .systemOnly:
             "仅系统翻译"
+        case .appleShortcut:
+            "Apple 在线翻译（快捷指令）"
         }
     }
 
@@ -86,6 +89,8 @@ enum TranslationProviderMode: String, Codable, CaseIterable {
             "若配置了在线翻译 provider，会优先走在线翻译；失败或超时后会自动回退到系统翻译。"
         case .systemOnly:
             "仅使用系统翻译能力，适合更看重本地能力和系统一致性的场景。"
+        case .appleShortcut:
+            "通过「快捷指令」调用系统翻译，可借助 Apple 在线翻译获得更准的结果。需先安装指定快捷指令，并在系统设置中关闭「设备端模式」；文本会经系统在线翻译处理。"
         }
     }
 }
@@ -191,8 +196,11 @@ public final class AppSettings: ObservableObject {
     @Published var doubleTapModifier: DoubleTapModifier
     @Published var resultPanelPlacement: ResultPanelPlacementMode
     @Published var translationProvider: TranslationProviderMode
+    @Published var translationShortcutName: String
     @Published var isBlockEditingEnabled: Bool
     @Published var launchAtLogin = false
+
+    static let defaultTranslationShortcutName = "TextGrabber Translate"
 
     let ocrLanguages = ["zh-Hans", "en-US"]
 
@@ -202,6 +210,7 @@ public final class AppSettings: ObservableObject {
     private let doubleTapModifierKey = "app.doubleTapModifier"
     private let resultPanelPlacementKey = "app.resultPanelPlacement"
     private let translationProviderKey = "app.translationProvider"
+    private let translationShortcutNameKey = "app.translationShortcutName"
     private let blockEditingEnabledKey = "app.blockEditingEnabled"
 
     public init(defaults: UserDefaults = .standard) {
@@ -210,6 +219,8 @@ public final class AppSettings: ObservableObject {
         doubleTapModifier = DoubleTapModifier(rawValue: defaults.string(forKey: doubleTapModifierKey) ?? "") ?? .command
         resultPanelPlacement = ResultPanelPlacementMode(rawValue: defaults.string(forKey: resultPanelPlacementKey) ?? "") ?? .statusItem
         translationProvider = TranslationProviderMode(rawValue: defaults.string(forKey: translationProviderKey) ?? "") ?? .automatic
+        let storedShortcutName = (defaults.string(forKey: translationShortcutNameKey) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        translationShortcutName = storedShortcutName.isEmpty ? Self.defaultTranslationShortcutName : storedShortcutName
         isBlockEditingEnabled = defaults.object(forKey: blockEditingEnabledKey) as? Bool ?? true
 
         if let data = defaults.data(forKey: hotkeyKey),
@@ -256,6 +267,15 @@ public final class AppSettings: ObservableObject {
             .dropFirst()
             .sink { [weak self] provider in
                 self?.defaults.set(provider.rawValue, forKey: self?.translationProviderKey ?? "")
+            }
+            .store(in: &cancellables)
+
+        $translationShortcutName
+            .dropFirst()
+            .sink { [weak self] name in
+                guard let self else { return }
+                let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                self.defaults.set(trimmed, forKey: self.translationShortcutNameKey)
             }
             .store(in: &cancellables)
 

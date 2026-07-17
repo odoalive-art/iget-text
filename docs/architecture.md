@@ -57,6 +57,7 @@
 │   │   │   ├── OCRService.swift
 │   │   │   ├── OCRTextLayoutRules.swift
 │   │   │   ├── RecognitionWorkflow.swift
+│   │   │   ├── ShortcutsTranslationService.swift
 │   │   │   ├── SystemTranslationService.swift
 │   │   │   └── TranslationLanguagePackManager.swift
 │   │   └── UI
@@ -123,6 +124,7 @@
 - `RecognitionWorkflow`：串联权限检查、截图、OCR 和取消等主流程动作
 - `SystemTranslationService`：系统翻译计划生成、语种推断、超时与错误映射，为后续在线翻译留出统一入口；`normalizedSourceText` 按空行拆真实段落、段内换行按 CJK 感知合并，避免逐行翻译拆段
 - `OnlineTranslationService`：基于环境变量配置的通用 HTTP 在线翻译 provider，请求成功后可直接回填结果面板
+- `ShortcutsTranslationService`：经 `/usr/bin/shortcuts run` 调用用户安装的翻译快捷指令，借道系统翻译拿到（关闭「设备端模式」时的）Apple 在线翻译结果；异步 Process 封装含 60s 超时
 - `TranslationLanguagePackManager`：用 `LanguageAvailability` 查询中↔英语言包安装状态并驱动设置页语言包区块（受框架限制无删除/进度 API）
 
 #### `UI`
@@ -137,7 +139,8 @@
 - `SettingsWindowController` / `SettingsView`：单页设置窗口；用固定标签列呈现截图识别、结果、翻译、语言包与文本设置
 - `SettingsComponents`：设置页可复用控件（只读信息行、说明文本、权限提示、快捷键录制器 `ShortcutRecorderControl`）
 - `LanguagePackSettingsSection`：翻译语言包区块与 `LanguagePackDownloadBridge` 下载桥接（`.translationTask` 依次准备中↔英两个方向）
-- `AppSettings` 现已持久化翻译来源策略，支持“自动（在线优先，失败/超时后回退系统）”和“仅系统翻译”
+- `AppSettings` 现已持久化翻译来源策略，支持“自动（在线优先，失败/超时后回退系统）”“仅系统翻译”和“Apple 在线翻译（快捷指令）”（含可配置的快捷指令名称）
+- `ShortcutTranslationConfigView`：选中快捷指令来源时的配置行（名称输入、已安装状态、打开快捷指令 App）
 
 ### `TextGrabberTests`
 

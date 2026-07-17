@@ -30,6 +30,14 @@ Summary:
 - 修复两个可确定性验证的翻译 Bug：中英混排误判「不支持」、译文按 OCR 换行被拆段
 - 重构结果面板翻译会话链路，针对下载弹窗常驻、翻译偶发卡死做结构性修复，待真机验证
 - 新增设置页「翻译语言包」区块：可视化中↔英语言包安装状态、下载、跳转系统设置删除
+- 新增「Apple 在线翻译（快捷指令）」翻译来源：经 `shortcuts run` 借道系统翻译拿到在线结果
+
+Changes（快捷指令在线翻译）:
+- 核实 `Translation.framework` 公开接口仅设备端（无 server/cloud/online 任何 API，`LanguageAvailability.Status` 只有 installed/supported/unsupported），第三方 app 无法直接调用 Apple 在线翻译
+- 改走「快捷指令」方案：`ShortcutsTranslationService` 用 `/usr/bin/shortcuts run <名称> -i -o` 调用用户安装的翻译快捷指令，异步 Process 封装 + 60s 超时（首次冷启动可达 ~47s，热调用 ~0.3s）
+- `TranslationProviderMode` 新增 `.appleShortcut`；`AppSettings` 新增可持久化的 `translationShortcutName`（默认 `TextGrabber Translate`）
+- 结果面板在 `.appleShortcut` 下走 `beginShortcutTranslation`（不占用系统 translationTask）；设置页新增 `ShortcutTranslationConfigView`（名称输入、已安装/未安装状态、打开快捷指令 App）
+- 方向判断放在快捷指令内部（检测语言→中译英/英译中），app 侧只负责喂文本、取结果
 
 Changes（语言包管理）:
 - 新增 `TranslationLanguagePackManager`：用 `LanguageAvailability` 查询中↔英两个方向的安装状态并合并为单一 `PackStatus`，暴露 `refresh`/`requestDownload`/`finishDownload`
@@ -48,10 +56,14 @@ Changes:
 - `scriptPreferredSourceLanguageIdentifier` 在两种文字并存时不再于 hanShare 0.1–0.25 区间返回 nil 回落通用识别器，改为一律解析为受支持语言（汉字≥¼按中文，否则按英文），消除中英混排被误判为不支持语言
 - 为上述修复补 4 项单元测试（换行合并、空行段落保留、少量中文的英文句仍可翻译）
 Files Modified:
+- `Sources/TextGrabberKit/Models/AppSettings.swift`
 - `Sources/TextGrabberKit/Services/SystemTranslationService.swift`
 - `Sources/TextGrabberKit/Services/TranslationLanguagePackManager.swift`（新增）
+- `Sources/TextGrabberKit/Services/ShortcutsTranslationService.swift`（新增）
 - `Sources/TextGrabberKit/UI/ResultPopoverContentView.swift`
+- `Sources/TextGrabberKit/UI/ResultPopoverView.swift`
 - `Sources/TextGrabberKit/UI/LanguagePackSettingsSection.swift`（新增）
+- `Sources/TextGrabberKit/UI/SettingsComponents.swift`
 - `Sources/TextGrabberKit/UI/SettingsView.swift`
 - `Sources/TextGrabberKit/UI/SettingsWindowController.swift`
 - `Tests/TextGrabberTests/SystemTranslationServiceTests.swift`
@@ -63,6 +75,9 @@ Notes:
 - 会话链路重构与预热门控只在本机做了编译 + 单测 + 竞态审查；下载弹窗常驻、偶发卡死属系统 `Translation` 框架运行时行为，须在真机上分别用「已装/未装语言包」两种状态回归，本机无法复现验证
 - 待真机验证的点：①未装语言包时打开面板不再自动弹下载框 ②装好语言包后点翻译仍能秒回（预热生效）③重复翻译同一词不再卡住转圈 ④语言包区块的「未安装→下载→已安装」流程与「在系统设置中管理」深链落点（本机中↔英已安装，无法复现下载态）
 - 已用小脚本探明 `LanguageAvailability.supportedLanguages` 返回 21 种语言、`status(from:to:)` 可用，本机中↔英均为 installed；删除深链 `com.apple.Localization-Settings.extension` 可打开语言与地区面板
+- 快捷指令方案已本机验证：命令行往返成功（中→英译文质量佳），热调用 0.26–0.49s、首次冷启动 ~47s；异步 Process 封装（任务组+超时+终止回调）独立验证 0.62s 无死锁
+- 待你真机验证：①快捷指令改双向后中/英各译一次 ②关闭系统「设备端模式」确认译文变为在线结果 ③设置页选中该来源后名称/状态/翻译全链路
+- 打包注意：仓库在 iCloud 目录，iCloud 附加的扩展属性会破坏 codesign。改用 `scripts/build-app.sh --clean --output-dir /tmp/tg-dist` 在本地目录签名，再 `ditto` 到 `/Applications`（不要在已签名 bundle 上跑 `xattr -cr`）
 
 ## 2026-07-13
 
