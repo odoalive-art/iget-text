@@ -86,8 +86,7 @@ struct ShortcutTranslationConfigView: View {
         VStack(alignment: .leading, spacing: 14) {
             ShortcutSetupStep(
                 marker: stepOneMarker,
-                title: stepOneTitle,
-                detail: "点右侧按钮，在「快捷指令」中点「添加快捷指令」完成导入。若被系统拦截，先到「快捷指令 → 设置」开启「允许不受信任的快捷指令」；导入后名称需保持「\(AppSettings.defaultTranslationShortcutName)」。"
+                title: stepOneTitle
             ) {
                 HStack(spacing: 8) {
                     if installState != .installed {
@@ -103,8 +102,7 @@ struct ShortcutTranslationConfigView: View {
 
             ShortcutSetupStep(
                 marker: .optional,
-                title: "关闭系统「设备端模式」（可选，在线翻译更准）",
-                detail: "离线也能翻译；关闭后快捷指令会走 Apple 在线翻译，结果更准确。此开关由系统管理，App 无法自动检测。"
+                title: "关闭「设备端模式」以启用在线翻译（可选）"
             ) {
                 Button("打开系统设置") {
                     openTranslationSettings()
@@ -125,11 +123,7 @@ struct ShortcutTranslationConfigView: View {
     }
 
     private var stepOneTitle: String {
-        switch installState {
-        case .checking: return "获取并导入翻译快捷指令（检测中…）"
-        case .installed: return "翻译快捷指令已安装"
-        case .missing: return "获取并导入翻译快捷指令"
-        }
+        installState == .installed ? "翻译快捷指令已安装" : "获取并导入翻译快捷指令"
     }
 
     private func openTranslationSettings() {
@@ -165,11 +159,11 @@ private enum ShortcutSetupStepMarker {
 private struct ShortcutSetupStep<Trailing: View>: View {
     let marker: ShortcutSetupStepMarker
     let title: String
-    let detail: String
+    var detail: String? = nil
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .center, spacing: 10) {
             markerView
                 .frame(width: 18, height: 18)
 
@@ -177,16 +171,17 @@ private struct ShortcutSetupStep<Trailing: View>: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(title)
                         .font(.callout)
-                        .fontWeight(.medium)
                     Spacer(minLength: 8)
                     trailing()
                         .controlSize(.small)
                         .fixedSize()
                 }
-                Text(detail)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if let detail {
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
