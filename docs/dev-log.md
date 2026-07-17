@@ -39,6 +39,11 @@ Changes（快捷指令在线翻译）:
 - 结果面板在 `.appleShortcut` 下走 `beginShortcutTranslation`（不占用系统 translationTask）；设置页新增 `ShortcutTranslationConfigView`（名称输入、已安装/未安装状态、打开快捷指令 App）
 - 方向判断放在快捷指令内部（检测语言→中译英/英译中），app 侧只负责喂文本、取结果
 
+Changes（翻译版式修正）:
+- 真机对比发现系统翻译把标题与正文并成一句（如「我的错题本」+ 正文 → 一整句），而在线/快捷指令保留了两行版式
+- 根因是先前的 `normalizedSourceText` 在翻译层按 CJK 合并单换行，越权处理了本属独立的行；改为逐行去首尾空白、丢空行但**保留换行结构**，折行合并只交由 OCR 阅读优化阶段的版面几何判断
+- 更新对应单测（改为断言换行被保留、空行被丢弃）
+
 Changes（语言包管理）:
 - 新增 `TranslationLanguagePackManager`：用 `LanguageAvailability` 查询中↔英两个方向的安装状态并合并为单一 `PackStatus`，暴露 `refresh`/`requestDownload`/`finishDownload`
 - 新增 `LanguagePackSettingsSection` + `LanguagePackDownloadBridge`：设置页展示「已安装/未安装/检测中/不可用」状态徽标；未安装时「下载」按钮经 `.translationTask` 依次为两个方向调 `prepareTranslation()`（唤起系统下载弹窗）；「在系统设置中管理」深链到语言与地区面板供手动删除

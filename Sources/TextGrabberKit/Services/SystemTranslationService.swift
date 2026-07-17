@@ -163,43 +163,16 @@ struct SystemTranslationService: TranslationServicing {
         return description
     }
 
-    /// 规范化用于翻译的源文本:按空行拆分真实段落,段内的 OCR 换行按 CJK 感知合并为一行,
-    /// 避免同一句被识别成多行时,系统翻译逐行翻译把译文拆成多段。
+    /// 规范化用于翻译的源文本:逐行去除首尾空白、丢弃空行,但保留换行结构。
+    ///
+    /// "这是折行还是真换行"由 OCR 阅读优化阶段用版面几何判断;翻译层不再二次合并,
+    /// 以免把标题与正文等本就独立的行并成一句(与系统在线翻译保持一致的版式)。
     static func normalizedSourceText(from text: String) -> String {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return "" }
-
-        let blocks = trimmed
-            .replacing(#/\n[ \t]*\n\s*/#, with: "\u{0}")
-            .components(separatedBy: "\u{0}")
-        let normalizedBlocks = blocks.compactMap { block -> String? in
-            let lines = block
-                .split(separator: "\n", omittingEmptySubsequences: true)
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-            guard let first = lines.first else { return nil }
-
-            return lines.dropFirst().reduce(first) { joined, next in
-                joinTranslationLine(joined, with: next)
-            }
-        }
-
-        return normalizedBlocks.joined(separator: "\n")
-    }
-
-    private static func joinTranslationLine(_ current: String, with next: String) -> String {
-        guard let last = current.last else { return next }
-        guard let first = next.first else { return current }
-
-        if last == "-", first.isLetter {
-            return String(current.dropLast()) + next
-        }
-
-        if last.isASCII, first.isASCII, (last.isLetter || last.isNumber), (first.isLetter || first.isNumber) {
-            return current + " " + next
-        }
-
-        return current + next
+        text
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
     }
 
     private func detectSourceLanguageIdentifier(for text: String) -> String? {

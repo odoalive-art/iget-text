@@ -33,39 +33,24 @@ final class SystemTranslationServiceTests: XCTestCase {
         XCTAssertEqual(plan?.targetLanguageIdentifier, "en")
     }
 
-    func testWrappedChineseSentenceCollapsesToSingleLine() {
+    func testLineBreaksArePreservedForLayout() {
+        // 标题与正文是独立的两行,翻译源文本必须保留换行,避免被并成一句。
         let text = """
-        我先停掉当前运行的实例,再把这个
-        版最新源码重新拉起来。
+        我的错题本
+        自动收录刷题、模考全部错题，集中复盘薄弱点
         """
 
         let normalized = SystemTranslationService.normalizedSourceText(from: text)
 
-        XCTAssertEqual(normalized, "我先停掉当前运行的实例,再把这个版最新源码重新拉起来。")
+        XCTAssertEqual(normalized, "我的错题本\n自动收录刷题、模考全部错题，集中复盘薄弱点")
     }
 
-    func testWrappedEnglishSentenceJoinsWithSpace() {
-        let text = """
-        Restart the running
-        instance again.
-        """
+    func testBlankLinesAndSurroundingWhitespaceAreDropped() {
+        let text = "  第一行  \n\n  第二行  \n"
 
         let normalized = SystemTranslationService.normalizedSourceText(from: text)
 
-        XCTAssertEqual(normalized, "Restart the running instance again.")
-    }
-
-    func testBlankLineParagraphsArePreserved() {
-        let text = """
-        第一段第一行
-        第一段第二行
-
-        第二段
-        """
-
-        let normalized = SystemTranslationService.normalizedSourceText(from: text)
-
-        XCTAssertEqual(normalized, "第一段第一行第一段第二行\n第二段")
+        XCTAssertEqual(normalized, "第一行\n第二行")
     }
 
     func testMostlyEnglishWithFewChineseCharsStillTranslates() {
