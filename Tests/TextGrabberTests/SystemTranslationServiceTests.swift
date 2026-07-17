@@ -32,4 +32,47 @@ final class SystemTranslationServiceTests: XCTestCase {
 
         XCTAssertEqual(plan?.targetLanguageIdentifier, "en")
     }
+
+    func testWrappedChineseSentenceCollapsesToSingleLine() {
+        let text = """
+        我先停掉当前运行的实例,再把这个
+        版最新源码重新拉起来。
+        """
+
+        let normalized = SystemTranslationService.normalizedSourceText(from: text)
+
+        XCTAssertEqual(normalized, "我先停掉当前运行的实例,再把这个版最新源码重新拉起来。")
+    }
+
+    func testWrappedEnglishSentenceJoinsWithSpace() {
+        let text = """
+        Restart the running
+        instance again.
+        """
+
+        let normalized = SystemTranslationService.normalizedSourceText(from: text)
+
+        XCTAssertEqual(normalized, "Restart the running instance again.")
+    }
+
+    func testBlankLineParagraphsArePreserved() {
+        let text = """
+        第一段第一行
+        第一段第二行
+
+        第二段
+        """
+
+        let normalized = SystemTranslationService.normalizedSourceText(from: text)
+
+        XCTAssertEqual(normalized, "第一段第一行第一段第二行\n第二段")
+    }
+
+    func testMostlyEnglishWithFewChineseCharsStillTranslates() {
+        let service = SystemTranslationService()
+        let text = "Please restart the running instance 实例 and rebuild the latest source right now."
+
+        XCTAssertNil(service.validationMessage(for: text))
+        XCTAssertNotNil(service.makePlan(for: text))
+    }
 }

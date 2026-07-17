@@ -22,6 +22,30 @@ Notes:
 
 ## Entries
 
+## 2026-07-17
+
+Author: Claude
+
+Summary:
+- 修复两个可确定性验证的翻译 Bug：中英混排误判「不支持」、译文按 OCR 换行被拆段
+- 定位另两个翻译 Bug（下载弹窗常驻、翻译偶发卡死）的疑似根因，待真机验证
+
+Changes:
+- `SystemTranslationService` 新增 `normalizedSourceText`：按空行拆真实段落，段内 OCR 换行按 CJK 感知合并为一行，`makePlan`/`validationMessage` 统一走此规范化，避免系统翻译逐行翻译把译文拆成多段
+- `scriptPreferredSourceLanguageIdentifier` 在两种文字并存时不再于 hanShare 0.1–0.25 区间返回 nil 回落通用识别器，改为一律解析为受支持语言（汉字≥¼按中文，否则按英文），消除中英混排被误判为不支持语言
+- 为上述修复补 4 项单元测试（换行合并、空行段落保留、少量中文的英文句仍可翻译）
+- 在 todo 标注下载弹窗/卡死两个 Bug 的疑似根因：结果面板出现即预热 `prepareTranslation()` 会主动弹下载框，且预热会话与正式会话对同一语言对并发
+
+Files Modified:
+- `Sources/TextGrabberKit/Services/SystemTranslationService.swift`
+- `Tests/TextGrabberTests/SystemTranslationServiceTests.swift`
+- `docs/todo.md`
+- `docs/dev-log.md`
+
+Notes:
+- `swift build` 通过，`swift test` 57 项全绿（新增 4 项）
+- 下载弹窗与偶发卡死两个 Bug 属系统 `Translation` 框架运行时行为，须在真机上分别验证「已装/未装语言包」两种状态，本机无法复现验证
+
 ## 2026-07-13
 
 Author: Codex

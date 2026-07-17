@@ -77,7 +77,7 @@ enum TranslationExecution {
 @MainActor
 struct SystemTranslationService: TranslationServicing {
     func validationMessage(for text: String) -> String? {
-        let sourceText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sourceText = SystemTranslationService.normalizedSourceText(from: text)
         guard !sourceText.isEmpty, sourceText != "未识别到文本" else {
             return nil
         }
@@ -94,7 +94,7 @@ struct SystemTranslationService: TranslationServicing {
     }
 
     func makePlan(for text: String) -> TranslationPlan? {
-        let sourceText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sourceText = SystemTranslationService.normalizedSourceText(from: text)
         guard !sourceText.isEmpty, sourceText != "未识别到文本" else {
             return nil
         }
@@ -157,6 +157,45 @@ struct SystemTranslationService: TranslationServicing {
         return description
     }
 
+    /// 规范化用于翻译的源文本:按空行拆分真实段落,段内的 OCR 换行按 CJK 感知合并为一行,
+    /// 避免同一句被识别成多行时,系统翻译逐行翻译把译文拆成多段。
+    static func normalizedSourceText(from text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+
+        let blocks = trimmed
+            .replacing(#/\n[ \t]*\n\s*/#, with: "\u{0}")
+            .components(separatedBy: "\u{0}")
+        let normalizedBlocks = blocks.compactMap { block -> String? in
+            let lines = block
+                .split(separator: "\n", omittingEmptySubsequences: true)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            guard let first = lines.first else { return nil }
+
+            return lines.dropFirst().reduce(first) { joined, next in
+                joinTranslationLine(joined, with: next)
+            }
+        }
+
+        return normalizedBlocks.joined(separator: "\n")
+    }
+
+    private static func joinTranslationLine(_ current: String, with next: String) -> String {
+        guard let last = current.last else { return next }
+        guard let first = next.first else { return current }
+
+        if last == "-", first.isLetter {
+            return String(current.dropLast()) + next
+        }
+
+        if last.isASCII, first.isASCII, (last.isLetter || last.isNumber), (first.isLetter || first.isNumber) {
+            return current + " " + next
+        }
+
+        return current + next
+    }
+
     private func detectSourceLanguageIdentifier(for text: String) -> String? {
         if let scriptPreferredLanguage = scriptPreferredSourceLanguageIdentifier(for: text) {
             return scriptPreferredLanguage
@@ -183,16 +222,10 @@ struct SystemTranslationService: TranslationServicing {
         let total = counts.han + counts.latin
         guard total > 0 else { return nil }
 
+        // 两种文字并存即视为中英混排,一定落到受支持语言:汉字达到四分之一按中文处理,
+        // 否则按英文处理。不再留空档回落到通用语言识别器,避免混排内容被误判成不支持语言。
         let hanShare = Double(counts.han) / Double(total)
-        if hanShare >= 0.25 {
-            return "zh-Hans"
-        }
-
-        if hanShare <= 0.1 {
-            return "en"
-        }
-
-        return nil
+        return hanShare >= 0.25 ? "zh-Hans" : "en"
     }
 
     private func scriptCounts(in text: String) -> (han: Int, latin: Int) {
