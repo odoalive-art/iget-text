@@ -2,14 +2,6 @@ import AppKit
 import Carbon
 import SwiftUI
 
-// MARK: - 布局常量
-
-enum SettingsLayout {
-    static let titlebarHeight: CGFloat = 48
-    static let contentHeight: CGFloat = 520
-    static var windowHeight: CGFloat { titlebarHeight + contentHeight }
-}
-
 // MARK: - 只读信息行
 
 /// 一行只读信息:左标题,右侧次要颜色的取值。用于展示不可编辑的配置。

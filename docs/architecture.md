@@ -136,7 +136,7 @@
 - `BlockEditingSelection`：纯范围计算器，负责首次全选当前段落、再次全选全文
 - `ResultPopoverDebugWindowController`：`DEBUG` 构建下的 UI 调试面板，可在主程序内切换假数据场景和布局
 - `ResultPopoverStyles`：面板布局、玻璃容器、按钮样式和结果面板自适应尺寸规则
-- `SettingsWindowController` / `SettingsView`：单页设置窗口；用固定标签列呈现截图识别、结果、翻译、语言包与文本设置
+- `SettingsWindowController` / `SettingsView`：仿 macOS 系统设置的标准窗口，`NavigationSplitView` 左侧边栏分类（截图识别 / 结果面板 / 翻译 / 文本编辑），右侧对应分组表单；翻译分类含翻译来源、快捷指令配置与语言包区块
 - `SettingsComponents`：设置页可复用控件（只读信息行、说明文本、权限提示、快捷键录制器 `ShortcutRecorderControl`）
 - `LanguagePackSettingsSection`：翻译语言包区块与 `LanguagePackDownloadBridge` 下载桥接（`.translationTask` 依次准备中↔英两个方向）
 - `AppSettings` 现已持久化翻译来源策略，支持“自动（在线优先，失败/超时后回退系统）”“仅系统翻译”和“Apple 在线翻译（快捷指令）”（含可配置的快捷指令名称）
