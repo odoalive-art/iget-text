@@ -73,7 +73,24 @@ scripts/build-app.sh --sign-identity "Developer ID Application: Your Name (TEAMI
 
 完整打包、安装和验证步骤见 `docs/packaging.md`。
 
-如需启用在线翻译 provider，可在运行前注入以下环境变量：
+## 翻译来源
+
+设置面板「翻译」分区可选择翻译来源：
+
+- **自动**（默认）：优先走「快捷指令」调用 Apple 在线翻译，未安装或失败/超时时自动回退系统（设备端）翻译。
+- **仅系统翻译**：只用系统设备端翻译，本地不出网。
+- **Apple 在线翻译（快捷指令）**：始终走快捷指令。
+
+其中「快捷指令」方案借道 macOS「快捷指令」App 调用系统翻译（App 无法直接调用 Apple 在线翻译服务器）。首次使用需：
+
+1. 在设置的翻译分区点「获取快捷指令」，导入名为 `TextGrabber Translate` 的快捷指令（内含中↔英双向判断）。
+2. 在系统设置关闭「设备端模式」，快捷指令才会走 Apple 在线翻译（更准）；不关则为离线翻译。
+
+> 首次翻译可能有数十秒冷启动（快捷指令运行时预热），之后每次约 0.3 秒。
+
+### 自定义 HTTP 在线 provider（进阶）
+
+除快捷指令外，也可注入环境变量接入自建/兼容的 HTTP 翻译服务：
 
 ```bash
 export TEXTGRABBER_TRANSLATION_API_URL="https://your-translation-service.example.com/translate"

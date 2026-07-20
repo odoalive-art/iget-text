@@ -334,7 +334,6 @@ final class LiquidGlassContainerView: NSView {
         backgroundTintView.translatesAutoresizingMaskIntoConstraints = false
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         backgroundTintView.wantsLayer = true
-        backgroundTintView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.20).cgColor
 
         addSubview(effectView)
         NSLayoutConstraint.activate([
@@ -392,6 +391,11 @@ final class LiquidGlassContainerView: NSView {
     }
 
     private func updateStyling() {
+        let tintColor: NSColor = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? .black
+            : .white
+        backgroundTintView.layer?.backgroundColor = tintColor.withAlphaComponent(0.20).cgColor
+
         wantsLayer = true
         layer?.cornerCurve = .continuous
         layer?.cornerRadius = cornerRadius
@@ -416,7 +420,8 @@ final class LiquidGlassContainerView: NSView {
             transform: nil
         )
         innerBorderLayer.fillColor = NSColor.clear.cgColor
-        innerBorderLayer.strokeColor = NSColor.white.cgColor
+        // 内描边白色高光降到 4%,避免深色模式下实心白描边突兀。
+        innerBorderLayer.strokeColor = NSColor.white.withAlphaComponent(0.04).cgColor
         innerBorderLayer.lineWidth = 0.5
         innerBorderLayer.zPosition = 1
         updateShadowPath()

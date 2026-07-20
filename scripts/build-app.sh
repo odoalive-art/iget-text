@@ -22,6 +22,39 @@ EOF
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Since the macOS 26/27 SDK, SwiftUI's @State/@Binding are macros that require
+# the SwiftUIMacros plugin (libSwiftUIMacros.dylib). Command Line Tools do NOT
+# ship this plugin; only a full Xcode does. When the selected toolchain lacks
+# it, `swift build` fails with "cannot assign to property: 'self' is immutable"
+# on @State assignments. Point DEVELOPER_DIR at a full Xcode so builds work
+# regardless of the machine's `xcode-select` state.
+toolchain_has_swiftui_macros() {
+  local dev_dir="$1"
+  [[ -n "$dev_dir" ]] || return 1
+  [[ -f "$dev_dir/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins/libSwiftUIMacros.dylib" ]] && return 0
+  [[ -f "$dev_dir/usr/lib/swift/host/plugins/libSwiftUIMacros.dylib" ]] && return 0
+  return 1
+}
+
+ensure_swiftui_macro_toolchain() {
+  if toolchain_has_swiftui_macros "$(xcode-select -p 2>/dev/null || true)"; then
+    return
+  fi
+  local candidate
+  for candidate in \
+    "${DEVELOPER_DIR:-}" \
+    /Applications/Xcode.app/Contents/Developer \
+    /Applications/Xcode-beta.app/Contents/Developer; do
+    if toolchain_has_swiftui_macros "$candidate"; then
+      export DEVELOPER_DIR="$candidate"
+      echo "==> Using Xcode toolchain for SwiftUI macros: $candidate"
+      return
+    fi
+  done
+  echo "Warning: no toolchain with libSwiftUIMacros.dylib found; the build may fail on @State macros." >&2
+  echo "         Install Xcode, or run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" >&2
+}
+
 APP_NAME="TextGrabber"
 PRODUCT_NAME="TextGrabber"
 CONFIGURATION="release"
@@ -97,6 +130,8 @@ if [[ "$CLEAN_OUTPUT" == true ]]; then
   rm -rf "$APP_DIR"
   rm -f "$DIST_DIR"/"$APP_NAME"-*-macos.zip
 fi
+
+ensure_swiftui_macro_toolchain
 
 echo "==> Building $PRODUCT_NAME ($CONFIGURATION)"
 swift build -c "$CONFIGURATION" --product "$PRODUCT_NAME"

@@ -1,73 +1,29 @@
 import AppKit
 import SwiftUI
 
-/// 设置分类,对应边栏中的一项。
-enum SettingsCategory: String, CaseIterable, Identifiable, Hashable {
-    case capture
-    case result
-    case translation
-    case textEditing
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .capture: return "截图识别"
-        case .result: return "结果面板"
-        case .translation: return "翻译"
-        case .textEditing: return "文本编辑"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .capture: return "viewfinder"
-        case .result: return "macwindow"
-        case .translation: return "translate"
-        case .textEditing: return "textformat"
-        }
-    }
-}
-
 public struct SettingsView: View {
     @ObservedObject var settings: AppSettings
     @StateObject private var languagePackManager = TranslationLanguagePackManager()
-    @State private var selection: SettingsCategory? = .capture
 
     public init(settings: AppSettings) {
         self.settings = settings
     }
 
     public var body: some View {
-        NavigationSplitView {
-            List(SettingsCategory.allCases, selection: $selection) { category in
-                Label(category.title, systemImage: category.symbol)
-                    .tag(category)
-            }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 195, max: 240)
-        } detail: {
-            detail(for: selection ?? .capture)
-                .navigationTitle((selection ?? .capture).title)
-        }
-        .frame(minWidth: 700, idealWidth: 720, minHeight: 460, idealHeight: 500)
-    }
-
-    @ViewBuilder
-    private func detail(for category: SettingsCategory) -> some View {
         Form {
-            switch category {
-            case .capture:
-                captureSection
-            case .result:
-                resultSection
-            case .translation:
-                translationSection
-                LanguagePackSettingsSection(manager: languagePackManager)
-            case .textEditing:
-                textEditingSection
-            }
+            captureSection
+            resultSection
+            translationSection
+            LanguagePackSettingsSection(manager: languagePackManager)
+            textEditingSection
         }
         .formStyle(.grouped)
+        // 顶部留出标题栏高度(与 SettingsTitlebarView.height 一致):内容从标题栏下方开始,
+        // 但可向上滚动到毛玻璃标题栏之下透出。
+        .safeAreaInset(edge: .top, spacing: 0) {
+            Color.clear.frame(height: 48)
+        }
+        .frame(width: 460, height: 568)
     }
 
     // MARK: - 截图识别
@@ -94,6 +50,8 @@ public struct SettingsView: View {
             case .functionKey:
                 EmptyView()
             }
+        } header: {
+            Text("截图识别")
         } footer: {
             captureFooter
         }
@@ -124,7 +82,7 @@ public struct SettingsView: View {
     // MARK: - 结果
 
     private var resultSection: some View {
-        Section {
+        Section("结果") {
             SettingsInfoRow("识别语言", value: "简体中文、英文")
 
             Picker("显示位置", selection: $settings.resultPanelPlacement) {
@@ -148,6 +106,8 @@ public struct SettingsView: View {
             if settings.translationProvider == .appleShortcut || settings.translationProvider == .automatic {
                 ShortcutTranslationConfigView(shortcutName: $settings.translationShortcutName)
             }
+        } header: {
+            Text("翻译")
         } footer: {
             SettingsFootnote(settings.translationProvider.helperText)
         }
@@ -158,6 +118,8 @@ public struct SettingsView: View {
     private var textEditingSection: some View {
         Section {
             Toggle("段落级全选", isOn: $settings.isBlockEditingEnabled)
+        } header: {
+            Text("文本编辑")
         } footer: {
             SettingsFootnote("第一次按 ⌘A 或 ⌃A 选择光标所在段落;连续再按一次选择全文。")
         }
